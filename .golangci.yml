@@ -1,0 +1,50 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    # core defects
+    - errcheck
+    - govet
+    - staticcheck
+    - ineffassign
+    - unused
+    # service-sensible extras
+    - errorlint
+    - bodyclose
+    - gosec
+    - misspell
+    - revive
+    - gocritic
+    - testifylint
+    - thelper
+    - sloglint
+    - unconvert
+    - nolintlint
+  settings:
+    errcheck:
+      exclude-functions:
+        - (io.Closer).Close
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+  exclusions:
+    generated: lax
+    rules:
+      - path: _test\.go$
+        linters: [errcheck, gosec]
+      - path: tmp/
+        linters: [all]
+
+# NOTE: gofumpt intentionally omitted (2026-09): golangci-lint v2.11.4
+# reports nondeterministic gofumpt findings (random files per run) while
+# standalone gofumpt v0.9.2/v0.12.0 and gofmt are clean. Re-add gofumpt
+# after upgrading golangci past v2.11.4 and verifying stable runs.
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - ArifulProtik/TownHall
