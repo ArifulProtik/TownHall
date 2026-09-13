@@ -28,6 +28,16 @@ make dev               # live reload on :8080
 curl localhost:8080/api/v1/auth/health
 ```
 
+## Observability (local)
+
+`make up` starts the app plus Grafana + Loki + Prometheus + Alloy (needs
+Docker; stop `make dev` first — both want `:8080`). Grafana at
+`http://localhost:3000` (admin/admin) opens the TownHall dashboard:
+request rate, 5xx share, p95 latency, and app logs correlated by
+`request_id`. `make logs` follows the app container; `make down` stops
+everything. Compose Postgres is separate from your native one on
+`:5432`, which stays untouched.
+
 ## On the roadmap
 
 - Community spaces (servers, channels, roles) and realtime chat

@@ -81,6 +81,19 @@ setup: ## Copy .env.example to .env (if missing) + tidy
 	@if [ ! -f .env ]; then cp .env.example .env && echo "$(GREEN)created .env$(RESET)"; else echo "$(YELLOW).env already exists$(RESET)"; fi
 	@go mod tidy
 
+.PHONY: up
+up: ## Start app + observability stack (Grafana :3000). Stop `make dev` first (:8080 clash)
+	@docker compose up -d --build
+	@echo "$(GREEN)Grafana: http://localhost:3000 (admin/admin)$(RESET)"
+
+.PHONY: down
+down: ## Stop the compose stack (keeps volumes)
+	@docker compose down
+
+.PHONY: logs
+logs: ## Follow app container logs
+	@docker compose logs -f app
+
 .PHONY: clean
 clean: ## Remove build artifacts (tmp binary, air log)
 	@rm -f $(BIN) build-errors.log

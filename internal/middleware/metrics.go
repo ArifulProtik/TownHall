@@ -1,0 +1,58 @@
+package middleware
+
+import (
+	"strconv"
+	"time"
+
+	"github.com/labstack/echo/v5"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+)
+
+var (
+	httpRequestsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "townhall_http_requests_total",
+			Help: "Total HTTP requests by method, route, and status.",
+		},
+		[]string{"method", "route", "status"},
+	)
+	httpRequestDuration = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "townhall_http_request_duration_seconds",
+			Help:    "HTTP request latency by method and route.",
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{"method", "route"},
+	)
+)
+
+// RegisterMetrics wires Prometheus instrumentation: per-request RED
+// labels plus the /metrics scrape endpoint. The scrape endpoint itself
+// is not instrumented.
+func RegisterMetrics(e *echo.Echo) {
+	e.Use(Metrics())
+	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
+}
+
+// Metrics records request count and latency, labeled by method/route/status.
+func Metrics() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			if c.Path() == "/metrics" {
+				return next(c)
+			}
+			start := time.Now()
+			err := next(c)
+			route := c.Path()
+			if route == "" {
+				route = "unknown"
+			}
+			_, status := echo.ResolveResponseStatus(c.Response(), err)
+			httpRequestsTotal.WithLabelValues(c.Request().Method, route, strconv.Itoa(status)).Inc()
+			httpRequestDuration.WithLabelValues(c.Request().Method, route).Observe(time.Since(start).Seconds())
+			return err
+		}
+	}
+}

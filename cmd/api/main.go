@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"ArifulProtik/TownHall/ent"
 	"ArifulProtik/TownHall/internal/auth"
 	"ArifulProtik/TownHall/internal/config"
 	"ArifulProtik/TownHall/internal/platform"
@@ -32,7 +33,7 @@ func run() error {
 	log := logger.New(cfg.AppEnv, cfg.LogLevel)
 	ctx := context.Background()
 
-	entClient, err := platform.Open(ctx, cfg.DatabaseURL)
+	entClient, err := openWithRetry(ctx, log, cfg.DatabaseURL)
 	if err != nil {
 		log.Error("platform open failed", slog.Any("error", err))
 		return err
@@ -42,6 +43,12 @@ func run() error {
 	if cfg.AppEnv == "development" {
 		if err := platform.AutoMigrate(ctx, entClient); err != nil {
 			log.Error("automigrate failed", slog.Any("error", err))
+			return err
+		}
+	} else if cfg.AutoMigrate {
+		// Explicit opt-in (e.g. local compose): non-destructive create only.
+		if err := platform.Migrate(ctx, entClient); err != nil {
+			log.Error("migrate failed", slog.Any("error", err))
 			return err
 		}
 	}
@@ -71,4 +78,25 @@ func run() error {
 		log.Info("server stopped", slog.Any("error", err))
 	}
 	return nil
+}
+
+// openWithRetry dials Postgres until it accepts connections or the
+// budget (15 × 2s) runs out — containers rarely start in order.
+func openWithRetry(ctx context.Context, log *slog.Logger, databaseURL string) (*ent.Client, error) {
+	var err error
+	for attempt := 1; attempt <= 15; attempt++ {
+		var client *ent.Client
+		client, err = platform.Open(ctx, databaseURL)
+		if err == nil {
+			return client, nil
+		}
+		log.Warn("database not ready, retrying",
+			slog.Int("attempt", attempt), slog.Any("error", err))
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(2 * time.Second):
+		}
+	}
+	return nil, err
 }

@@ -9,6 +9,7 @@
 - `make lint` / `make lint-fix` — lint / lint with auto-fix
 - `make ent-new NAME=Group` — new schema in `ent/schema/`; then `make ent-generate`
 - `make setup` — copies `.env.example` → `.env` if missing
+- `make up` / `make down` / `make logs` — observability stack (stop `make dev` first, both want `:8080`)
 
 ## Finish gate (required)
 
@@ -68,3 +69,8 @@
 ## Ignored
 
 - `tmp/` (air builds) and `docs/superpowers/` are gitignored.
+
+## Observability
+
+- `observability/` holds Prometheus/Loki/Alloy/Grafana configs; app exposes `GET /metrics` (`townhall_http_requests_total`, `townhall_http_request_duration_seconds`) wired in `internal/middleware` (`RegisterMetrics`, excluded from its own instrumentation).
+- Compose DB is separate from native Postgres.app on `:5432` (compose port unpublished to avoid the clash); Compose app uses `db:5432` and `APP_ENV=production` for Loki-friendly JSON logs. Non-destructive schema create runs only with explicit `AUTO_MIGRATE=true` (`platform.Migrate`); destructive `AutoMigrate` stays dev-only. DB dial retries 15×2s at startup for container ordering.

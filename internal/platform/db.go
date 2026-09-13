@@ -28,11 +28,18 @@ func Open(ctx context.Context, databaseURL string) (*ent.Client, error) {
 	return ent.NewClient(ent.Driver(drv)), nil
 }
 
-// AutoMigrate runs Ent schema creation. Call only in development.
+// AutoMigrate runs Ent schema creation with destructive options.
+// Call only in development.
 func AutoMigrate(ctx context.Context, client *ent.Client) error {
 	return client.Schema.Create(
 		ctx,
 		migrate.WithDropIndex(true),
 		migrate.WithDropColumn(true),
 	)
+}
+
+// Migrate runs Ent schema creation without destructive options.
+// Safe for explicit opt-in (e.g. AUTO_MIGRATE=true) outside development.
+func Migrate(ctx context.Context, client *ent.Client) error {
+	return client.Schema.Create(ctx)
 }

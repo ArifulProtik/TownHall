@@ -4,6 +4,7 @@ package config
 import (
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -14,6 +15,7 @@ type Config struct {
 	Port          string
 	AppEnv        string
 	LogLevel      string
+	AutoMigrate   bool
 	DatabaseURL   string
 	JWTSecret     string
 	JWTAccessTTL  time.Duration
@@ -31,6 +33,7 @@ func New() *Config {
 		Port:          getEnv("PORT", "8080"),
 		AppEnv:        getEnv("APP_ENV", "development"),
 		LogLevel:      getEnv("LOG_LEVEL", "info"),
+		AutoMigrate:   getBool("AUTO_MIGRATE", false),
 		DatabaseURL:   mustGetEnv("DATABASE_URL"),
 		JWTSecret:     mustGetEnv("JWT_SECRET"),
 		JWTAccessTTL:  getDuration("JWT_ACCESS_TTL", 15*time.Minute),
@@ -44,6 +47,18 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func getBool(key string, fallback bool) bool {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		log.Fatalf("invalid boolean for %s: %v", key, err)
+	}
+	return b
 }
 
 func mustGetEnv(key string) string {

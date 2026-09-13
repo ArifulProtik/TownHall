@@ -1,0 +1,52 @@
+// Scrapes Docker container stdout and ships it to Loki.
+// level becomes a Loki label (low cardinality); request_id travels as
+// structured metadata (high cardinality — must NOT be a label).
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "names" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.+)"
+    target_label  = "container"
+  }
+}
+
+loki.source.docker "logs" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.names.output
+  forward_to = [loki.process.app.receiver]
+}
+
+loki.process "app" {
+  forward_to = [loki.write.default.receiver]
+
+  stage.json {
+    expressions = {
+      level      = "level",
+      request_id = "request_id",
+    }
+  }
+
+  stage.labels {
+    values = {
+      level = "",
+    }
+  }
+
+  stage.structured_metadata {
+    values = {
+      request_id = "",
+    }
+  }
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

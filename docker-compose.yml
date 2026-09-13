@@ -1,0 +1,83 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: chat_platform
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # NOTE: port 5432 is NOT published — native Postgres.app already owns
+    # localhost:5432 for `make dev`. Compose services reach this DB as db:5432.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: "8080"
+      APP_ENV: production # JSON logs to stdout for Loki
+      LOG_LEVEL: info
+      AUTO_MIGRATE: "true" # local compose only: non-destructive schema create
+      DATABASE_URL: postgres://postgres:postgres@db:5432/chat_platform?sslmode=disable
+      JWT_SECRET: dev-secret-change-me # local only — never reuse in shared envs
+      JWT_ACCESS_TTL: 15m
+      JWT_REFRESH_TTL: 720h
+      REDIS_URL: redis://localhost:6379 # reserved, unused by the app today
+    ports:
+      - "8080:8080" # stop `make dev` first — it owns :8080 too
+
+  prometheus:
+    image: prom/prometheus:v3.3.0
+    command: --config.file=/etc/prometheus/prometheus.yml
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - promdata:/prometheus
+    ports:
+      - "9090:9090"
+
+  loki:
+    image: grafana/loki:3.5.0
+    command: -config.file=/etc/loki/loki.yml
+    volumes:
+      - ./observability/loki/loki.yml:/etc/loki/loki.yml:ro
+      - lokidata:/loki
+    ports:
+      - "3100:3100"
+
+  alloy:
+    image: grafana/alloy:v1.10.0
+    command: run --server.http.listen-addr=0.0.0.0:12345 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
+    volumes:
+      - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "12345:12345"
+
+  grafana:
+    image: grafana/grafana:12.1.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafanadata:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+      - loki
+
+volumes:
+  pgdata:
+  promdata:
+  lokidata:
+  grafanadata:

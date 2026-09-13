@@ -11,9 +11,11 @@ import (
 	echomw "github.com/labstack/echo/v5/middleware"
 )
 
-// Register wires the global middleware stack. RequestID must precede
-// RequestLogger so access logs can read the request id.
+// Register wires the global middleware stack (including Prometheus
+// instrumentation). RequestID must precede RequestLogger so access
+// logs can read the request id.
 func Register(e *echo.Echo, log *slog.Logger) {
+	RegisterMetrics(e)
 	e.Use(echomw.Recover())
 	e.Use(echomw.RequestIDWithConfig(echomw.RequestIDConfig{
 		RequestIDHandler: func(c *echo.Context, requestID string) {
