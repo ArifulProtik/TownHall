@@ -31,3 +31,13 @@ func Conflict(msg string) *AppError {
 func Internal() *AppError {
 	return New(http.StatusInternalServerError, "internal", "internal server error")
 }
+
+// Unauthorized builds a 401 AppError with a generic message.
+func Unauthorized(msg string) *AppError {
+	return New(http.StatusUnauthorized, "unauthorized", msg)
+}
+
+// TooManyRequests builds a 429 AppError.
+func TooManyRequests(msg string) *AppError {
+	return New(http.StatusTooManyRequests, "rate_limited", msg)
+}

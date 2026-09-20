@@ -24,6 +24,21 @@ type UserResponse struct {
 	CreatedAt     time.Time `json:"created_at"`
 }
 
+// LoginRequest is the login request body.
+type LoginRequest struct {
+	Email    string `json:"email" validate:"required,email,max=255"`
+	Password string `json:"password" validate:"required,min=8,max=72"`
+}
+
+// TokenPair is an issued access + refresh token set with expiries.
+// RefreshRaw is the only copy of the raw refresh value — hash before storing.
+type TokenPair struct {
+	AccessToken string
+	AccessExp   time.Time
+	RefreshRaw  string
+	RefreshExp  time.Time
+}
+
 // ToUserResponse maps an Ent user to its public response shape.
 func ToUserResponse(u *ent.User) UserResponse {
 	return UserResponse{
