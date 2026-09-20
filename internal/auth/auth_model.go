@@ -51,3 +51,9 @@ func ToUserResponse(u *ent.User) UserResponse {
 		CreatedAt:     u.CreatedAt,
 	}
 }
+
+// TokenResponse carries an access token; the refresh token travels by cookie only.
+type TokenResponse struct {
+	AccessToken string `json:"access_token"`
+	ExpiresIn   int64  `json:"expires_in"`
+}

@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"ArifulProtik/TownHall/ent/enttest"
 	"ArifulProtik/TownHall/internal/config"
@@ -30,13 +31,18 @@ func newTestHandler(t *testing.T) (*echo.Echo, *Handler, *bytes.Buffer) {
 
 	var buf bytes.Buffer
 	log := logger.NewWithWriter("test", "info", &buf)
-	svc := NewService(&config.Config{AppEnv: "test"}, client, log)
+	svc := NewService(&config.Config{
+		AppEnv:        "test",
+		JWTSecret:     "test-secret-1234567890",
+		JWTAccessTTL:  15 * time.Minute,
+		JWTRefreshTTL: 720 * time.Hour,
+	}, client, log)
 	return e, NewHandler(svc, log), &buf
 }
 
 func doSignup(t *testing.T, e *echo.Echo, h *Handler, body string) *httptest.ResponseRecorder {
 	t.Helper()
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/signup/email", strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/signup", strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
@@ -81,4 +87,155 @@ func TestSignupEmailHandler_Duplicate(t *testing.T) {
 
 	second := doSignup(t, e, h, `{"name":"Joe Two","email":"joe@example.com","password":"password123"}`)
 	assert.Equal(t, http.StatusConflict, second.Code)
+}
+
+func doLogin(t *testing.T, e *echo.Echo, h *Handler, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.Set(logger.RequestIDKey, "req-login-1")
+	require.NoError(t, h.Login(c))
+	return rec
+}
+
+func refreshCookie(t *testing.T, rec *httptest.ResponseRecorder) *http.Cookie {
+	t.Helper()
+	for _, ck := range rec.Result().Cookies() {
+		if ck.Name == RefreshCookieName {
+			return ck
+		}
+	}
+	t.Fatal("refresh cookie missing")
+	return nil
+}
+
+func doRefresh(t *testing.T, e *echo.Echo, h *Handler, ck *http.Cookie) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/refresh", nil)
+	if ck != nil {
+		req.AddCookie(ck)
+	}
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.Set(logger.RequestIDKey, "req-refresh-1")
+	require.NoError(t, h.Refresh(c))
+	return rec
+}
+
+func TestLoginHandler_SuccessAndCookie(t *testing.T) {
+	e, h, _ := newTestHandler(t)
+	require.Equal(t, http.StatusCreated, doSignup(t, e, h, `{"name":"Joe","email":"joe@example.com","password":"password123"}`).Code)
+
+	rec := doLogin(t, e, h, `{"email":"joe@example.com","password":"password123"}`)
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	assert.NotEmpty(t, body["access_token"])
+	assert.NotContains(t, body, "refresh_token")
+
+	ck := refreshCookie(t, rec)
+	assert.True(t, ck.HttpOnly)
+	assert.Equal(t, RefreshCookiePath, ck.Path)
+	assert.Equal(t, http.SameSiteStrictMode, ck.SameSite)
+}
+
+func TestLoginHandler_FailureIdentical(t *testing.T) {
+	e, h, _ := newTestHandler(t)
+	require.Equal(t, http.StatusCreated, doSignup(t, e, h, `{"name":"Joe","email":"joe@example.com","password":"password123"}`).Code)
+
+	wrong := doLogin(t, e, h, `{"email":"joe@example.com","password":"wrongpassword"}`)
+	unknown := doLogin(t, e, h, `{"email":"nobody@example.com","password":"wrongpassword"}`)
+	assert.Equal(t, http.StatusUnauthorized, wrong.Code)
+	assert.Equal(t, wrong.Code, unknown.Code)
+	assert.JSONEq(t, wrong.Body.String(), unknown.Body.String())
+}
+
+func TestLoginHandler_RateLimited(t *testing.T) {
+	e, h, _ := newTestHandler(t)
+	require.Equal(t, http.StatusCreated, doSignup(t, e, h, `{"name":"Joe","email":"joe@example.com","password":"password123"}`).Code)
+
+	var rec *httptest.ResponseRecorder
+	for range 6 {
+		rec = doLogin(t, e, h, `{"email":"joe@example.com","password":"wrongpassword"}`)
+	}
+	assert.Equal(t, http.StatusTooManyRequests, rec.Code)
+	assert.NotEmpty(t, rec.Header().Get("Retry-After"))
+}
+
+func TestRefreshHandler_RotationAndReuse(t *testing.T) {
+	e, h, _ := newTestHandler(t)
+	require.Equal(t, http.StatusCreated, doSignup(t, e, h, `{"name":"Joe","email":"joe@example.com","password":"password123"}`).Code)
+
+	first := refreshCookie(t, doLogin(t, e, h, `{"email":"joe@example.com","password":"password123"}`))
+	rotated := doRefresh(t, e, h, first)
+	assert.Equal(t, http.StatusOK, rotated.Code)
+	second := refreshCookie(t, rotated)
+
+	// Replay of the rotated token → 401 and full revocation.
+	replay := doRefresh(t, e, h, first)
+	assert.Equal(t, http.StatusUnauthorized, replay.Code)
+	assert.Equal(t, http.StatusUnauthorized, doRefresh(t, e, h, second).Code)
+
+	// Missing cookie → 401.
+	assert.Equal(t, http.StatusUnauthorized, doRefresh(t, e, h, nil).Code)
+}
+
+func TestLogoutHandlers(t *testing.T) {
+	e, h, _ := newTestHandler(t)
+	require.Equal(t, http.StatusCreated, doSignup(t, e, h, `{"name":"Joe","email":"joe@example.com","password":"password123"}`).Code)
+
+	ckA := refreshCookie(t, doLogin(t, e, h, `{"email":"joe@example.com","password":"password123"}`))
+	ckB := refreshCookie(t, doLogin(t, e, h, `{"email":"joe@example.com","password":"password123"}`))
+
+	// Logout A: clears cookie, kills A, spares B.
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout", nil)
+	req.AddCookie(ckA)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	require.NoError(t, h.Logout(c))
+	assert.Equal(t, http.StatusOK, rec.Code)
+	cleared := false
+	for _, ck := range rec.Result().Cookies() {
+		if ck.Name == RefreshCookieName && ck.MaxAge < 0 {
+			cleared = true
+		}
+	}
+	assert.True(t, cleared, "logout must clear the cookie")
+	assert.Equal(t, http.StatusUnauthorized, doRefresh(t, e, h, ckA).Code)
+
+	// Reuse path above revoked ALL tokens including B, so re-login for a
+	// fresh cookie to prove logout-all revokes a live token.
+	ckB2 := refreshCookie(t, doLogin(t, e, h, `{"email":"joe@example.com","password":"password123"}`))
+	_ = ckB
+
+	// Logout-all with user id: kills B2 too.
+	sub, err := VerifyAccessToken("test-secret-1234567890", tokenFrom(t, e, h))
+	require.NoError(t, err)
+	reqAll := httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout-all", nil)
+	reqAll.AddCookie(ckB2)
+	recAll := httptest.NewRecorder()
+	cAll := e.NewContext(reqAll, recAll)
+	cAll.Set(UserIDKey, sub)
+	require.NoError(t, h.LogoutAll(cAll))
+	assert.Equal(t, http.StatusOK, recAll.Code)
+	assert.Equal(t, http.StatusUnauthorized, doRefresh(t, e, h, ckB2).Code)
+
+	// Logout-all without auth → 401.
+	reqAnon := httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout-all", nil)
+	recAnon := httptest.NewRecorder()
+	require.NoError(t, h.LogoutAll(e.NewContext(reqAnon, recAnon)))
+	assert.Equal(t, http.StatusUnauthorized, recAnon.Code)
+}
+
+func tokenFrom(t *testing.T, e *echo.Echo, h *Handler) string {
+	t.Helper()
+	rec := doLogin(t, e, h, `{"email":"joe@example.com","password":"password123"}`)
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	tok, _ := body["access_token"].(string)
+	require.NotEmpty(t, tok)
+	return tok
 }
