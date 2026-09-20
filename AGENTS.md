@@ -74,3 +74,12 @@
 
 - `observability/` holds Prometheus/Loki/Alloy/Grafana configs; app exposes `GET /metrics` (`townhall_http_requests_total`, `townhall_http_request_duration_seconds`) wired in `internal/middleware` (`RegisterMetrics`, excluded from its own instrumentation).
 - Compose DB is separate from native Postgres.app on `:5432` (compose port unpublished to avoid the clash); Compose app uses `db:5432` and `APP_ENV=production` for Loki-friendly JSON logs. Non-destructive schema create runs only with explicit `AUTO_MIGRATE=true` (`platform.Migrate`); destructive `AutoMigrate` stays dev-only. DB dial retries 15×2s at startup for container ordering.
+
+## Frontend (ui/, bun + React + Vite + TS)
+
+- Commands (run in `ui/`): `bun run dev` (vite `:5173`, `/api` proxied to `:8080`) / `bun run build` (`tsc -b && vite build`) / `bun run lint` / `bun run test` / `bun run typecheck`.
+- Finish gate (UI tasks): `bun run typecheck` + `bun run lint` + `bun run test` + `bun run build`, all green. Backend `make check`/`make build` unaffected (no backend changes in UI tasks).
+- Structure: feature folders — `src/features/<feature>/` (`authApi.ts`, `authSlice.ts`, `*Page.tsx`, `RequireAuth.tsx`); shared `src/app/` (store, router, hooks), `src/lib/`, `src/components/`, `src/pages/`.
+- Naming: components/pages PascalCase matching the default export (`LoginPage.tsx`); tests colocated (`LoginPage.test.tsx`); hooks `use*.ts`; slices/apis/store camelCase (`authSlice.ts`); no barrel `index.ts` re-exports — import directly via `@/` alias (`tsconfig.app.json` paths + `vite.config.ts` resolve.alias).
+- Auth rules: access token lives in Redux memory only — never `localStorage`/`sessionStorage`, never logged; refresh travels by HttpOnly cookie (`credentials: "include"`); 401s funnel through `baseQueryWithReauth` (refresh-then-retry-once, else `clearCredentials`).
+- Backend contract mirror: TS types in `authApi.ts` must match `internal/auth/auth_model.go` JSON tags exactly (`access_token`, `expires_in`, `email_verified`, …). Changing the Go contract means updating the TS types in the same task.

@@ -1,32 +1,23 @@
-# React + TypeScript + Vite
+# TownHall UI
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React 19 + Vite 8 + TypeScript + Tailwind v4 + Redux Toolkit (RTK Query) + React Router 7, managed with bun.
 
-Currently, two official plugins are available:
+## Prerequisites
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- bun 1.x (`bun --version`)
+- Backend running locally (`make dev` in repo root → `http://localhost:8080`)
 
-## React Compiler
+## Commands (run in `ui/`)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- `bun install` — install dependencies
+- `bun run dev` — Vite dev server on `:5173`; `/api/*` is proxied to `http://localhost:8080`
+- `bun run build` — `tsc -b && vite build` → `ui/dist/`
+- `bun run lint` / `bun run format` — ESLint / Prettier
+- `bun run test` / `bun run test:watch` — Vitest (single run / watch)
+- `bun run typecheck` — `tsc --noEmit`
 
-## Expanding the Oxlint configuration
+## Auth model
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+- Access token lives in Redux memory only (never persisted, never logged).
+- Refresh travels by HttpOnly cookie (`credentials: "include"`); 401s funnel through `baseQueryWithReauth` (refresh → retry once → else logout).
+- TS types in `src/features/auth/authApi.ts` mirror `internal/auth/auth_model.go` exactly — update both sides together when the contract changes.
