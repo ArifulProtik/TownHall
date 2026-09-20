@@ -3,6 +3,7 @@ import App from '@/App';
 import HomePage from '@/pages/HomePage';
 import LoginPage from '@/features/auth/LoginPage';
 import SignupPage from '@/features/auth/SignupPage';
+import { AuthLayout } from '@/features/auth/AuthLayout';
 import { RequireAuth } from '@/features/auth/RequireAuth';
 
 export const routes: RouteObject[] = [
@@ -18,8 +19,13 @@ export const routes: RouteObject[] = [
           </RequireAuth>
         ),
       },
-      { path: 'login', element: <LoginPage /> },
-      { path: 'signup', element: <SignupPage /> },
+      {
+        element: <AuthLayout />,
+        children: [
+          { path: 'login', element: <LoginPage /> },
+          { path: 'signup', element: <SignupPage /> },
+        ],
+      },
     ],
   },
 ];
