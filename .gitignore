@@ -3,3 +3,5 @@ docs/superpowers/
 .superpowers/
 .worktrees/
 .env
+ui/node_modules/
+ui/dist/
