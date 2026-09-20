@@ -59,6 +59,8 @@ func run() error {
 	// handler — otherwise they bypass it as JSON.
 	e.Logger = log
 	appmiddleware.Register(e, log)
+	// Global auth enforcement: everything except signup/login/refresh/health/metrics.
+	e.Use(auth.Middleware(cfg.JWTSecret))
 
 	authSvc := auth.NewService(cfg, entClient, log)
 	authHandler := auth.NewHandler(authSvc, log)
