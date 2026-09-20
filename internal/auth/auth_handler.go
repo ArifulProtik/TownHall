@@ -218,6 +218,9 @@ func (h *Handler) LogoutAll(c *echo.Context) error {
 }
 
 // errRateLimited marks a request already rejected with 429.
+// The response is already committed when this is returned, so Echo's error
+// handler must (and does, via its Response().Committed check) not write again;
+// never return nil on the 429 path (that reintroduces the fall-through bug).
 var errRateLimited = errors.New("rate limit exceeded")
 
 // checkRateLimit enforces email+IP quotas; on excess it writes the 429 itself.

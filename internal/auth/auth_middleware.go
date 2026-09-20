@@ -26,7 +26,8 @@ var publicPaths = map[string]struct{}{
 func Middleware(secret string) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
-			if _, ok := publicPaths[c.Request().URL.Path]; ok {
+			path := strings.TrimSuffix(c.Request().URL.Path, "/")
+			if _, ok := publicPaths[path]; ok {
 				return next(c)
 			}
 			parts := strings.SplitN(c.Request().Header.Get("Authorization"), " ", 2)

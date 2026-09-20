@@ -32,6 +32,13 @@ var (
 				OnDelete:   schema.NoAction,
 			},
 		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "refreshtoken_expires_at",
+				Unique:  false,
+				Columns: []*schema.Column{RefreshTokensColumns[4]},
+			},
+		},
 	}
 	// UsersColumns holds the columns for the "users" table.
 	UsersColumns = []*schema.Column{

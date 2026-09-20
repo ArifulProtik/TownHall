@@ -74,6 +74,9 @@ func HashRefreshToken(raw string) string {
 }
 
 // RefreshTokenMatches constant-time compares a stored hash to a raw candidate.
+// Production lookup is by DB equality on the SHA-256 hash (256-bit random
+// tokens have no practical timing leak); this helper exists for explicit
+// re-comparison and unit tests.
 func RefreshTokenMatches(storedHash, rawCandidate string) bool {
 	candidate := HashRefreshToken(rawCandidate)
 	if len(storedHash) != len(candidate) {
