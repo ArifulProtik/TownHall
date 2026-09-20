@@ -13,7 +13,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-test('client validation blocks a bad email without network', async () => {
+test('schema validation blocks a bad email without network', async () => {
   vi.stubGlobal('Request', TestRequest);
   const fetchMock = vi.fn(async () => jsonResponse({}));
   vi.stubGlobal('fetch', fetchMock);
@@ -24,7 +24,7 @@ test('client validation blocks a bad email without network', async () => {
   await user.type(screen.getByLabelText('Password'), 'password123');
   await user.click(screen.getByRole('button', { name: 'Log in' }));
 
-  expect(await screen.findByRole('alert')).toHaveTextContent('Enter a valid email address.');
+  expect(await screen.findByText('Enter a valid email address.')).toBeInTheDocument();
   expect(fetchMock).not.toHaveBeenCalled();
 });
 

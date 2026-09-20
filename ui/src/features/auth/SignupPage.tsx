@@ -1,38 +1,28 @@
-import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useSignupMutation } from '@/features/auth/authApi';
 import { getAuthErrorMessage } from '@/features/auth/authErrors';
-import { TextField } from '@/components/TextField';
-
-function validEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
+import { SignupSchema, type SignupFormValues } from '@/features/auth/authSchema';
+import { M3Button } from '@/components/M3Button';
+import { M3Card } from '@/components/M3Card';
+import { M3TextField } from '@/components/M3TextField';
 
 export default function SignupPage() {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [formError, setFormError] = useState('');
   const [signup, { isLoading }] = useSignupMutation();
   const navigate = useNavigate();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<SignupFormValues>({ resolver: zodResolver(SignupSchema), mode: 'onTouched' });
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (name.trim().length < 2) {
-      setFormError('Name must be at least 2 characters.');
-      return;
-    }
-    if (!validEmail(email)) {
-      setFormError('Enter a valid email address.');
-      return;
-    }
-    if (password.length < 8) {
-      setFormError('Password must be at least 8 characters.');
-      return;
-    }
+  async function onValid(values: SignupFormValues) {
     setFormError('');
     try {
-      await signup({ name: name.trim(), email: email.trim(), password }).unwrap();
+      await signup(values).unwrap();
       navigate('/login', { replace: true });
     } catch (err) {
       setFormError(getAuthErrorMessage(err));
@@ -40,49 +30,47 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-      <form
-        onSubmit={onSubmit}
-        noValidate
-        className="w-full max-w-sm space-y-4 rounded-lg bg-white p-6 shadow"
-      >
-        <h1 className="text-xl font-bold text-gray-900">Create your account</h1>
-        {formError ? (
-          <p role="alert" className="text-sm text-red-600">
-            {formError}
-          </p>
-        ) : null}
-        <TextField id="name" label="Name" value={name} onChange={setName} autoComplete="name" />
-        <TextField
+    <M3Card className="w-full max-w-sm space-y-4 p-6">
+      <h1 className="text-xl font-medium text-on-surface">Create your account</h1>
+      {formError ? (
+        <p role="alert" className="text-sm text-error">
+          {formError}
+        </p>
+      ) : null}
+      <form onSubmit={handleSubmit(onValid)} noValidate className="space-y-4">
+        <M3TextField
+          id="name"
+          label="Name"
+          autoComplete="name"
+          error={errors.name?.message}
+          {...register('name')}
+        />
+        <M3TextField
           id="email"
           label="Email"
           type="email"
-          value={email}
-          onChange={setEmail}
           autoComplete="email"
+          error={errors.email?.message}
+          {...register('email')}
         />
-        <TextField
+        <M3TextField
           id="password"
           label="Password"
           type="password"
-          value={password}
-          onChange={setPassword}
           autoComplete="new-password"
+          error={errors.password?.message}
+          {...register('password')}
         />
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="w-full rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-        >
+        <M3Button type="submit" loading={isLoading} className="w-full">
           {isLoading ? 'Signing up…' : 'Sign up'}
-        </button>
-        <p className="text-sm text-gray-600">
-          Have an account?{' '}
-          <Link to="/login" className="underline">
-            Log in
-          </Link>
-        </p>
+        </M3Button>
       </form>
-    </main>
+      <p className="text-sm text-on-surface-variant">
+        Have an account?{' '}
+        <Link to="/login" className="text-primary underline">
+          Log in
+        </Link>
+      </p>
+    </M3Card>
   );
 }
