@@ -5,6 +5,10 @@ import LoginPage from '@/features/auth/LoginPage';
 import SignupPage from '@/features/auth/SignupPage';
 import { AuthLayout } from '@/features/auth/AuthLayout';
 import { RequireAuth } from '@/features/auth/RequireAuth';
+import { AppShell } from '@/components/AppShell';
+import SpacesPage from '@/features/spaces/SpacesPage';
+import FeedPage from '@/features/feed/FeedPage';
+import ProfilePage from '@/features/profile/ProfilePage';
 
 export const routes: RouteObject[] = [
   {
@@ -12,12 +16,17 @@ export const routes: RouteObject[] = [
     element: <App />,
     children: [
       {
-        index: true,
         element: (
           <RequireAuth>
-            <HomePage />
+            <AppShell />
           </RequireAuth>
         ),
+        children: [
+          { index: true, element: <HomePage /> },
+          { path: 'spaces', element: <SpacesPage /> },
+          { path: 'feed', element: <FeedPage /> },
+          { path: 'u/:handle', element: <ProfilePage /> },
+        ],
       },
       {
         element: <AuthLayout />,

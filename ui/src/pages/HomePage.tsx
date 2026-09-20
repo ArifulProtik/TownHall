@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { authApi, useLogoutMutation } from '@/features/auth/authApi';
 import { useAppDispatch } from '@/app/hooks';
 import { clearCredentials } from '@/features/auth/authSlice';
@@ -22,7 +22,15 @@ export default function HomePage() {
     <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm space-y-4 rounded-lg bg-white p-6 text-center shadow">
         <h1 className="text-xl font-bold text-gray-900">Welcome to TownHall</h1>
-        <p className="text-sm text-gray-600">You are logged in.</p>
+        <p className="text-sm text-on-surface-variant">You are logged in.</p>
+        <div className="flex justify-center gap-4 text-sm">
+          <Link to="/spaces" className="text-primary underline">
+            Spaces
+          </Link>
+          <Link to="/feed" className="text-primary underline">
+            Feed
+          </Link>
+        </div>
         <button
           type="button"
           onClick={onLogout}
