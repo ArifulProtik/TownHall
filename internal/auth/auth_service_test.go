@@ -94,7 +94,7 @@ func newLoginService(t *testing.T) (*Service, context.Context) {
 	return svc, context.Background()
 }
 
-func mustSignup(t *testing.T, svc *Service, ctx context.Context) {
+func mustSignup(ctx context.Context, t *testing.T, svc *Service) {
 	t.Helper()
 	_, err := svc.SignupEmail(ctx, SignupEmail{Name: "Joe", Email: "joe@example.com", Password: "password123"})
 	require.NoError(t, err)
@@ -102,14 +102,14 @@ func mustSignup(t *testing.T, svc *Service, ctx context.Context) {
 
 func TestLogin_Success(t *testing.T) {
 	svc, ctx := newLoginService(t)
-	mustSignup(t, svc, ctx)
+	mustSignup(ctx, t, svc)
 
 	pair, err := svc.Login(ctx, LoginRequest{Email: "JOE@example.com", Password: "password123"})
 	require.NoError(t, err)
 	require.NotNil(t, pair)
 	assert.NotEmpty(t, pair.AccessToken)
 	assert.NotEmpty(t, pair.RefreshRaw)
-	assert.WithinDuration(t, time.Now().Add(720*time.Hour), pair.RefreshExp, 2*time.Minute)
+	assert.WithinDuration(t, pair.RefreshExp, time.Now().Add(720*time.Hour), 2*time.Minute)
 
 	sub, err := VerifyAccessToken("test-secret-1234567890", pair.AccessToken)
 	require.NoError(t, err)
@@ -126,7 +126,7 @@ func TestLogin_Success(t *testing.T) {
 
 func TestLogin_FailureIdentical(t *testing.T) {
 	svc, ctx := newLoginService(t)
-	mustSignup(t, svc, ctx)
+	mustSignup(ctx, t, svc)
 
 	_, errWrong := svc.Login(ctx, LoginRequest{Email: "joe@example.com", Password: "wrongpassword"})
 	_, errUnknown := svc.Login(ctx, LoginRequest{Email: "nobody@example.com", Password: "wrongpassword"})
@@ -134,8 +134,8 @@ func TestLogin_FailureIdentical(t *testing.T) {
 	require.Error(t, errUnknown)
 
 	wrongApp, unknownApp := &apperror.AppError{}, &apperror.AppError{}
-	require.True(t, errors.As(errWrong, &wrongApp))
-	require.True(t, errors.As(errUnknown, &unknownApp))
+	require.ErrorAs(t, errWrong, &wrongApp)
+	require.ErrorAs(t, errUnknown, &unknownApp)
 	assert.Equal(t, 401, wrongApp.Status)
 	assert.Equal(t, wrongApp.Status, unknownApp.Status)
 	assert.Equal(t, wrongApp.Message, unknownApp.Message)
@@ -144,7 +144,7 @@ func TestLogin_FailureIdentical(t *testing.T) {
 
 func TestRefresh_Rotation(t *testing.T) {
 	svc, ctx := newLoginService(t)
-	mustSignup(t, svc, ctx)
+	mustSignup(ctx, t, svc)
 
 	first, err := svc.Login(ctx, LoginRequest{Email: "joe@example.com", Password: "password123"})
 	require.NoError(t, err)
@@ -159,7 +159,7 @@ func TestRefresh_Rotation(t *testing.T) {
 
 func TestRefresh_ReuseRevokesAll(t *testing.T) {
 	svc, ctx := newLoginService(t)
-	mustSignup(t, svc, ctx)
+	mustSignup(ctx, t, svc)
 
 	first, err := svc.Login(ctx, LoginRequest{Email: "joe@example.com", Password: "password123"})
 	require.NoError(t, err)
@@ -169,11 +169,11 @@ func TestRefresh_ReuseRevokesAll(t *testing.T) {
 	// Replay the already-rotated token: reuse → 401 and full revocation.
 	_, err = svc.Refresh(ctx, first.RefreshRaw)
 	appErr := &apperror.AppError{}
-	require.True(t, errors.As(err, &appErr))
+	require.ErrorAs(t, err, &appErr)
 	assert.Equal(t, 401, appErr.Status)
 
 	_, err = svc.Refresh(ctx, second.RefreshRaw)
-	require.True(t, errors.As(err, &appErr))
+	require.ErrorAs(t, err, &appErr)
 	assert.Equal(t, 401, appErr.Status)
 
 	n, err := svc.db.RefreshToken.Query().Where(refreshtoken.RevokedAtIsNil()).Count(ctx)
@@ -183,11 +183,11 @@ func TestRefresh_ReuseRevokesAll(t *testing.T) {
 
 func TestRefresh_ExpiredAndUnknown(t *testing.T) {
 	svc, ctx := newLoginService(t)
-	mustSignup(t, svc, ctx)
+	mustSignup(ctx, t, svc)
 
 	_, err := svc.Refresh(ctx, "never-issued-token")
 	appErr := &apperror.AppError{}
-	require.True(t, errors.As(err, &appErr))
+	require.ErrorAs(t, err, &appErr)
 	assert.Equal(t, 401, appErr.Status)
 
 	u, err := svc.db.User.Query().Only(ctx)
@@ -200,13 +200,13 @@ func TestRefresh_ExpiredAndUnknown(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = svc.Refresh(ctx, "expired-raw")
-	require.True(t, errors.As(err, &appErr))
+	require.ErrorAs(t, err, &appErr)
 	assert.Equal(t, 401, appErr.Status)
 }
 
 func TestLogout_SingleAndAll(t *testing.T) {
 	svc, ctx := newLoginService(t)
-	mustSignup(t, svc, ctx)
+	mustSignup(ctx, t, svc)
 
 	a, err := svc.Login(ctx, LoginRequest{Email: "joe@example.com", Password: "password123"})
 	require.NoError(t, err)
@@ -215,9 +215,9 @@ func TestLogout_SingleAndAll(t *testing.T) {
 
 	require.NoError(t, svc.Logout(ctx, a.RefreshRaw))
 	_, err = svc.Refresh(ctx, b.RefreshRaw)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	_, err = svc.Refresh(ctx, a.RefreshRaw)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	c, err := svc.Login(ctx, LoginRequest{Email: "joe@example.com", Password: "password123"})
 	require.NoError(t, err)
@@ -225,6 +225,6 @@ func TestLogout_SingleAndAll(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, svc.LogoutAll(ctx, u.ID))
 	_, err = svc.Refresh(ctx, c.RefreshRaw)
-	assert.Error(t, err)
+	require.Error(t, err)
 	require.NoError(t, svc.Logout(ctx, "nope"))
 }

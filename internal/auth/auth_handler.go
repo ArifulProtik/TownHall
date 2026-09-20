@@ -217,6 +217,9 @@ func (h *Handler) LogoutAll(c *echo.Context) error {
 	return c.JSON(http.StatusOK, response.Map{"status": "ok"})
 }
 
+// errRateLimited marks a request already rejected with 429.
+var errRateLimited = errors.New("rate limit exceeded")
+
 // checkRateLimit enforces email+IP quotas; on excess it writes the 429 itself.
 func (h *Handler) checkRateLimit(c *echo.Context, email string) error {
 	allowed, retry := h.svc.AllowAttempt(email, c.RealIP())
@@ -228,7 +231,10 @@ func (h *Handler) checkRateLimit(c *echo.Context, email string) error {
 		secs++
 	}
 	c.Response().Header().Set("Retry-After", strconv.FormatInt(secs, 10))
-	return c.JSON(http.StatusTooManyRequests, response.Map{"error": "rate limit exceeded", "code": "rate_limited"})
+	if err := c.JSON(http.StatusTooManyRequests, response.Map{"error": "rate limit exceeded", "code": "rate_limited"}); err != nil {
+		return err
+	}
+	return errRateLimited
 }
 
 // setRefreshCookie writes the refresh-token cookie scoped to auth endpoints.

@@ -3,6 +3,7 @@ package auth
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -96,7 +97,9 @@ func doLogin(t *testing.T, e *echo.Echo, h *Handler, body string) *httptest.Resp
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 	c.Set(logger.RequestIDKey, "req-login-1")
-	require.NoError(t, h.Login(c))
+	if err := h.Login(c); !errors.Is(err, errRateLimited) {
+		require.NoError(t, err)
+	}
 	return rec
 }
 
@@ -163,6 +166,7 @@ func TestLoginHandler_RateLimited(t *testing.T) {
 	}
 	assert.Equal(t, http.StatusTooManyRequests, rec.Code)
 	assert.NotEmpty(t, rec.Header().Get("Retry-After"))
+	assert.JSONEq(t, `{"error":"rate limit exceeded","code":"rate_limited"}`, rec.Body.String())
 }
 
 func TestRefreshHandler_RotationAndReuse(t *testing.T) {
