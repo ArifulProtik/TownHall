@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"ArifulProtik/TownHall/ent/refreshtoken"
 	"ArifulProtik/TownHall/ent/user"
 	"context"
 	"errors"
@@ -73,7 +74,8 @@ var (
 func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			user.Table: user.ValidColumn,
+			refreshtoken.Table: refreshtoken.ValidColumn,
+			user.Table:         user.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

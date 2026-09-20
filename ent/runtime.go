@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"ArifulProtik/TownHall/ent/refreshtoken"
 	"ArifulProtik/TownHall/ent/schema"
 	"ArifulProtik/TownHall/ent/user"
 	"time"
@@ -12,6 +13,31 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	refreshtokenMixin := schema.RefreshToken{}.Mixin()
+	refreshtokenMixinFields0 := refreshtokenMixin[0].Fields()
+	_ = refreshtokenMixinFields0
+	refreshtokenFields := schema.RefreshToken{}.Fields()
+	_ = refreshtokenFields
+	// refreshtokenDescCreatedAt is the schema descriptor for created_at field.
+	refreshtokenDescCreatedAt := refreshtokenMixinFields0[1].Descriptor()
+	// refreshtoken.DefaultCreatedAt holds the default value on creation for the created_at field.
+	refreshtoken.DefaultCreatedAt = refreshtokenDescCreatedAt.Default.(func() time.Time)
+	// refreshtokenDescUpdatedAt is the schema descriptor for updated_at field.
+	refreshtokenDescUpdatedAt := refreshtokenMixinFields0[2].Descriptor()
+	// refreshtoken.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	refreshtoken.DefaultUpdatedAt = refreshtokenDescUpdatedAt.Default.(func() time.Time)
+	// refreshtoken.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	refreshtoken.UpdateDefaultUpdatedAt = refreshtokenDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// refreshtokenDescTokenHash is the schema descriptor for token_hash field.
+	refreshtokenDescTokenHash := refreshtokenFields[0].Descriptor()
+	// refreshtoken.TokenHashValidator is a validator for the "token_hash" field. It is called by the builders before save.
+	refreshtoken.TokenHashValidator = refreshtokenDescTokenHash.Validators[0].(func(string) error)
+	// refreshtokenDescID is the schema descriptor for id field.
+	refreshtokenDescID := refreshtokenMixinFields0[0].Descriptor()
+	// refreshtoken.DefaultID holds the default value on creation for the id field.
+	refreshtoken.DefaultID = refreshtokenDescID.Default.(func() string)
+	// refreshtoken.IDValidator is a validator for the "id" field. It is called by the builders before save.
+	refreshtoken.IDValidator = refreshtokenDescID.Validators[0].(func(string) error)
 	userMixin := schema.User{}.Mixin()
 	userMixinFields0 := userMixin[0].Fields()
 	_ = userMixinFields0

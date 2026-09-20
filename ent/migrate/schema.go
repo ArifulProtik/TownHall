@@ -8,6 +8,31 @@ import (
 )
 
 var (
+	// RefreshTokensColumns holds the columns for the "refresh_tokens" table.
+	RefreshTokensColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "token_hash", Type: field.TypeString, Unique: true},
+		{Name: "expires_at", Type: field.TypeTime},
+		{Name: "revoked_at", Type: field.TypeTime, Nullable: true},
+		{Name: "replaced_by", Type: field.TypeString, Nullable: true},
+		{Name: "user_refresh_tokens", Type: field.TypeString},
+	}
+	// RefreshTokensTable holds the schema information for the "refresh_tokens" table.
+	RefreshTokensTable = &schema.Table{
+		Name:       "refresh_tokens",
+		Columns:    RefreshTokensColumns,
+		PrimaryKey: []*schema.Column{RefreshTokensColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "refresh_tokens_users_refresh_tokens",
+				Columns:    []*schema.Column{RefreshTokensColumns[7]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
 	// UsersColumns holds the columns for the "users" table.
 	UsersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeString},
@@ -28,9 +53,11 @@ var (
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
+		RefreshTokensTable,
 		UsersTable,
 	}
 )
 
 func init() {
+	RefreshTokensTable.ForeignKeys[0].RefTable = UsersTable
 }
