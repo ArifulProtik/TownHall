@@ -30,7 +30,7 @@
 
 - Schemas live in `ent/schema/`; everything else under `ent/` is generated — never hand-edit.
 - `internal/platform/db.go`: opens with pgx stdlib (`sql.Open("pgx", url)`, `dialect.Postgres`). `AutoMigrate` uses `WithDropIndex/WithDropColumn` and is gated to `APP_ENV=development` in `main.go` — never call it in prod paths.
-- Note typo'd filename: config lives in `internal/config/conifg.go`. Don't create a second `config.go`.
+- Configuration lives in `internal/config/config.go`. Loaded via `config.New()`.
 
 ## Auth pattern
 

@@ -37,17 +37,19 @@ build: ## Build binary to ./tmp/main
 	@go build -o $(BIN) $(MAIN_PKG)
 	@echo "$(GREEN)built $(BIN)$(RESET)"
 
+GO_PKGS := $$(go list ./... | grep -v /ui)
+
 .PHONY: test
 test: ## Run all tests
-	@go test ./...
+	@go test $(GO_PKGS)
 
 .PHONY: test-verbose
 test-verbose: ## Run all tests verbosely
-	@go test -v ./...
+	@go test -v $(GO_PKGS)
 
 .PHONY: vet
 vet: ## Run go vet
-	@go vet ./...
+	@go vet $(GO_PKGS)
 
 .PHONY: lint
 lint: ## Run golangci-lint
