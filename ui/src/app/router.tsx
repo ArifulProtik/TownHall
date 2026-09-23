@@ -1,13 +1,13 @@
 import { lazy, Suspense, type ComponentType } from 'react';
 import { createBrowserRouter, type RouteObject } from 'react-router';
 import App from '@/App';
-import HomePage from '@/pages/HomePage';
 import { AuthLayout } from '@/features/auth/AuthLayout';
 import { RequireAuth } from '@/features/auth/RequireAuth';
 import { RequireGuest } from '@/features/auth/RequireGuest';
 import { AppShell } from '@/components/AppShell';
 import { PageLoadingSkeleton } from '@/components/ui/PageLoadingSkeleton';
 
+const HomePage = lazy(() => import('@/pages/HomePage'));
 const LoginPage = lazy(() => import('@/features/auth/LoginPage'));
 const SignupPage = lazy(() => import('@/features/auth/SignupPage'));
 const OnboardingPage = lazy(() => import('@/features/auth/OnboardingPage'));
@@ -36,7 +36,7 @@ export const routes: RouteObject[] = [
           </RequireAuth>
         ),
         children: [
-          { index: true, element: <HomePage /> },
+          { index: true, element: withSuspense(HomePage) },
           { path: 'dms', element: withSuspense(MessagesPage) },
           { path: 'spaces', element: withSuspense(SpacesPage) },
           { path: 'feed', element: withSuspense(FeedPage) },

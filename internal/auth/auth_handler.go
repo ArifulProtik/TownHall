@@ -39,11 +39,6 @@ func (h *Handler) RegisterRoutes(public *echo.Group, protected *echo.Group) {
 	authProtected.POST("/logout-all", h.LogoutAll)
 }
 
-// AuthMiddleware validates Bearer tokens for protected routes.
-func (h *Handler) AuthMiddleware() echo.MiddlewareFunc {
-	return Middleware(h.svc.config.JWTSecret)
-}
-
 // NewHandler builds an Handler around svc.
 func NewHandler(svc *Service, log *slog.Logger) *Handler {
 	return &Handler{svc: svc, log: log}

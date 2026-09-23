@@ -376,7 +376,7 @@ func TestRegisterRoutes_PublicAndProtected(t *testing.T) {
 
 	api := e.Group("/api/v1")
 	public := api.Group("")
-	protected := api.Group("", h.AuthMiddleware())
+	protected := api.Group("", Middleware(h.svc.config.JWTSecret))
 	h.RegisterRoutes(public, protected)
 
 	// Public endpoint /health should return 200 without Authorization header

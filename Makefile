@@ -37,7 +37,7 @@ build: ## Build binary to ./tmp/main
 	@go build -o $(BIN) $(MAIN_PKG)
 	@echo "$(GREEN)built $(BIN)$(RESET)"
 
-GO_PKGS := $$(go list ./... | grep -v /ui)
+GO_PKGS = $(shell go list ./... | grep -v /ui)
 
 .PHONY: test
 test: ## Run all tests
