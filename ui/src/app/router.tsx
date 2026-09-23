@@ -10,6 +10,7 @@ import { AppShell } from '@/components/AppShell';
 import SpacesPage from '@/features/spaces/SpacesPage';
 import FeedPage from '@/features/feed/FeedPage';
 import ProfilePage from '@/features/profile/ProfilePage';
+import DirectMessagesPage from '@/pages/DirectMessagesPage';
 
 export const routes: RouteObject[] = [
   {
@@ -24,6 +25,7 @@ export const routes: RouteObject[] = [
         ),
         children: [
           { index: true, element: <HomePage /> },
+          { path: 'dms', element: <DirectMessagesPage /> },
           { path: 'spaces', element: <SpacesPage /> },
           { path: 'feed', element: <FeedPage /> },
           { path: 'u/:handle', element: <ProfilePage /> },
