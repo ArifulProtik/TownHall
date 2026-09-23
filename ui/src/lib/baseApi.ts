@@ -1,4 +1,5 @@
 import {
+  createApi,
   fetchBaseQuery,
   type BaseQueryFn,
   type FetchArgs,
@@ -60,3 +61,11 @@ export const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, Fetch
     }
     return result;
   };
+
+export const baseApi = createApi({
+  reducerPath: 'api',
+  baseQuery: baseQueryWithReauth,
+  tagTypes: ['Auth', 'User', 'Post', 'Space', 'Message', 'Notification'],
+  endpoints: () => ({}),
+});
+

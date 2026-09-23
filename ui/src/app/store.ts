@@ -1,15 +1,15 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { setupListeners } from '@reduxjs/toolkit/query';
-import { authApi } from '@/features/auth/authApi';
+import { baseApi } from '@/lib/baseApi';
 import authReducer from '@/features/auth/authSlice';
 
 export const createAppStore = () =>
   configureStore({
     reducer: {
       auth: authReducer,
-      [authApi.reducerPath]: authApi.reducer,
+      [baseApi.reducerPath]: baseApi.reducer,
     },
-    middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(authApi.middleware),
+    middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(baseApi.middleware),
   });
 
 export const store = createAppStore();
