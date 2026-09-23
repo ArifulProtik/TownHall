@@ -24,6 +24,17 @@ type UserResponse struct {
 	CreatedAt     time.Time `json:"created_at"`
 }
 
+// CheckUsernameResponse reports whether a username is available.
+type CheckUsernameResponse struct {
+	Available bool   `json:"available"`
+	Reason    string `json:"reason,omitempty"`
+}
+
+// SetupUsernameRequest holds the request to set an initial username.
+type SetupUsernameRequest struct {
+	Username string `json:"username" validate:"required,min=3,max=30,alphanum_underscore"`
+}
+
 // LoginRequest is the login request body.
 type LoginRequest struct {
 	Email    string `json:"email" validate:"required,email,max=255"`
@@ -41,11 +52,15 @@ type TokenPair struct {
 
 // ToUserResponse maps an Ent user to its public response shape.
 func ToUserResponse(u *ent.User) UserResponse {
+	var username *string
+	if u.Username != "" {
+		username = &u.Username
+	}
 	return UserResponse{
 		ID:            u.ID,
 		Name:          u.Name,
 		Email:         u.Email,
-		Username:      &u.Username,
+		Username:      username,
 		Provider:      string(u.Provider),
 		EmailVerified: u.EmailVerified,
 		CreatedAt:     u.CreatedAt,

@@ -1,19 +1,28 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Popover } from '@base-ui/react/popover';
-import { User, SignOut } from '@phosphor-icons/react';
+import { User, SignOut, Moon, Sun } from '@phosphor-icons/react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { authApi, useLogoutMutation } from '@/features/auth/authApi';
+import { useTheme } from '@/components/ThemeToggle';
+import { authApi, useLogoutMutation, useGetMeQuery } from '@/features/auth/authApi';
 import { clearCredentials } from '@/features/auth/authSlice';
 import { useAppDispatch } from '@/app/hooks';
+
+function getInitials(name?: string): string {
+  if (!name || !name.trim()) return 'TH';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
+}
 
 export function UserMenuPopover() {
   const [open, setOpen] = useState(false);
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const [logout] = useLogoutMutation();
+  const { data: user } = useGetMeQuery();
+  const { dark, toggle: toggleTheme } = useTheme();
 
   async function onLogout() {
     try {
@@ -28,6 +37,15 @@ export function UserMenuPopover() {
     }
   }
 
+  const initials = getInitials(user?.name);
+  const displayName = user?.name ?? 'TownHall User';
+  const displayHandle = user?.username
+    ? `@${user.username}`
+    : user?.email
+      ? `@${user.email.split('@')[0]}`
+      : '@member';
+  const profileHandle = user?.username || 'joe';
+
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger
@@ -37,7 +55,7 @@ export function UserMenuPopover() {
       >
         <Avatar className="size-10 border border-sidebar-border bg-sidebar-accent">
           <AvatarFallback className="text-sm font-semibold text-foreground">
-            TH
+            {initials}
           </AvatarFallback>
         </Avatar>
         {/* Discord-style Online status dot */}
@@ -54,12 +72,12 @@ export function UserMenuPopover() {
             <div className="flex items-center gap-3 p-2">
               <Avatar className="size-9 bg-primary/10">
                 <AvatarFallback className="text-xs font-semibold text-primary">
-                  TH
+                  {initials}
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-foreground">TownHall User</p>
-                <p className="truncate text-xs text-muted-foreground">@townhall_member</p>
+                <p className="truncate text-sm font-medium text-foreground">{displayName}</p>
+                <p className="truncate text-xs text-muted-foreground">{displayHandle}</p>
               </div>
             </div>
 
@@ -67,19 +85,32 @@ export function UserMenuPopover() {
 
             {/* Profile Navigation */}
             <Link
-              to="/u/joe"
+              to={`/u/${profileHandle}`}
               onClick={() => setOpen(false)}
-              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             >
-              <User className="size-4" />
+              <User className="size-4 shrink-0 text-muted-foreground" />
               <span>My Profile</span>
             </Link>
 
-            {/* Theme Toggle Item */}
-            <div className="flex items-center justify-between rounded-lg px-2.5 py-1.5 text-sm text-foreground hover:bg-accent hover:text-accent-foreground">
-              <span>Theme</span>
-              <ThemeToggle />
-            </div>
+            {/* Theme Toggle Item - Consistent row layout and height */}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="flex w-full cursor-pointer items-center justify-between rounded-lg px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              <div className="flex items-center gap-2.5">
+                {dark ? (
+                  <Sun className="size-4 shrink-0 text-muted-foreground" />
+                ) : (
+                  <Moon className="size-4 shrink-0 text-muted-foreground" />
+                )}
+                <span>Theme</span>
+              </div>
+              <span className="text-xs text-muted-foreground capitalize">
+                {dark ? 'Dark' : 'Light'}
+              </span>
+            </button>
 
             <Separator className="my-1.5" />
 
@@ -87,9 +118,9 @@ export function UserMenuPopover() {
             <button
               type="button"
               onClick={onLogout}
-              className="flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-destructive hover:bg-destructive/10"
+              className="flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-destructive transition-colors hover:bg-destructive/10"
             >
-              <SignOut className="size-4" />
+              <SignOut className="size-4 shrink-0" />
               <span>Log out</span>
             </button>
           </Popover.Popup>

@@ -38,6 +38,15 @@ export interface StatusResponse {
   status: string;
 }
 
+export interface CheckUsernameResponse {
+  available: boolean;
+  reason?: string;
+}
+
+export interface SetupUsernameRequest {
+  username: string;
+}
+
 export const authApi = createApi({
   reducerPath: 'authApi',
   baseQuery: baseQueryWithReauth,
@@ -73,6 +82,28 @@ export const authApi = createApi({
     logoutAll: build.mutation<StatusResponse, void>({
       query: () => ({ url: '/auth/logout-all', method: 'POST' }),
     }),
+    getMe: build.query<UserResponse, void>({
+      query: () => ({ url: '/auth/me', method: 'GET' }),
+    }),
+    checkUsername: build.query<CheckUsernameResponse, string>({
+      query: (username) => ({
+        url: `/auth/check-username?username=${encodeURIComponent(username)}`,
+        method: 'GET',
+      }),
+    }),
+    setupUsername: build.mutation<UserResponse, SetupUsernameRequest>({
+      query: (body) => ({ url: '/auth/onboarding', method: 'POST', body }),
+      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+        try {
+          const { data: updatedUser } = await queryFulfilled;
+          dispatch(
+            authApi.util.updateQueryData('getMe', undefined, () => updatedUser),
+          );
+        } catch {
+          // error is surfaced to the caller via .unwrap()
+        }
+      },
+    }),
   }),
 });
 
@@ -82,4 +113,8 @@ export const {
   useRefreshQuery,
   useLogoutMutation,
   useLogoutAllMutation,
+  useGetMeQuery,
+  useCheckUsernameQuery,
+  useSetupUsernameMutation,
 } = authApi;
+

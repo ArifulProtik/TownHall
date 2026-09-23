@@ -228,3 +228,68 @@ func TestLogout_SingleAndAll(t *testing.T) {
 	require.Error(t, err)
 	require.NoError(t, svc.Logout(ctx, "nope"))
 }
+
+func TestService_CheckUsername(t *testing.T) {
+	svc, _ := newTestService(t)
+	ctx := context.Background()
+
+	alice, err := svc.SignupEmail(ctx, SignupEmail{
+		Name:     "Alice",
+		Email:    "alice@example.com",
+		Password: "password123",
+	})
+	require.NoError(t, err)
+
+	// Set Alice's username
+	_, err = svc.SetupUsername(ctx, alice.ID, "alice_99")
+	require.NoError(t, err)
+
+	// Alice checking "alice_99" should be available for Alice
+	avail, reason, err := svc.CheckUsername(ctx, alice.ID, "alice_99")
+	require.NoError(t, err)
+	assert.True(t, avail)
+	assert.Empty(t, reason)
+
+	// Bob checking "alice_99" should NOT be available
+	bob, err := svc.SignupEmail(ctx, SignupEmail{
+		Name:     "Bob",
+		Email:    "bob@example.com",
+		Password: "password123",
+	})
+	require.NoError(t, err)
+
+	avail, reason, err = svc.CheckUsername(ctx, bob.ID, "alice_99")
+	require.NoError(t, err)
+	assert.False(t, avail)
+	assert.Equal(t, "already_taken", reason)
+
+	// Checking an unused username
+	avail, reason, err = svc.CheckUsername(ctx, bob.ID, "bob_the_builder")
+	require.NoError(t, err)
+	assert.True(t, avail)
+	assert.Empty(t, reason)
+
+	// Checking short username
+	avail, reason, err = svc.CheckUsername(ctx, bob.ID, "ab")
+	require.NoError(t, err)
+	assert.False(t, avail)
+	assert.Equal(t, "invalid_length", reason)
+}
+
+func TestService_SetupUsername_Conflict(t *testing.T) {
+	svc, _ := newTestService(t)
+	ctx := context.Background()
+
+	u1, err := svc.SignupEmail(ctx, SignupEmail{Name: "User 1", Email: "u1@example.com", Password: "password123"})
+	require.NoError(t, err)
+	_, err = svc.SetupUsername(ctx, u1.ID, "shared_name")
+	require.NoError(t, err)
+
+	u2, err := svc.SignupEmail(ctx, SignupEmail{Name: "User 2", Email: "u2@example.com", Password: "password123"})
+	require.NoError(t, err)
+	_, err = svc.SetupUsername(ctx, u2.ID, "shared_name")
+	require.Error(t, err)
+	var appErr *apperror.AppError
+	require.ErrorAs(t, err, &appErr)
+	assert.Equal(t, 409, appErr.Status)
+}

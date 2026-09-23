@@ -65,3 +65,12 @@ func TestValidateSignupShape(t *testing.T) {
 		})
 	}
 }
+
+func TestAlphanumUnderscoreValidation(t *testing.T) {
+	v := validation.New()
+	type TestPayload struct {
+		Username string `validate:"alphanum_underscore"`
+	}
+	require.NoError(t, v.Validate(&TestPayload{Username: "valid_name123"}))
+	require.Error(t, v.Validate(&TestPayload{Username: "invalid-name!"}))
+}

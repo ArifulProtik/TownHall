@@ -3,10 +3,13 @@ package validation
 
 import (
 	"errors"
+	"regexp"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
 )
+
+var alphanumUnderscoreRegex = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
 
 // Error carries validator failures with per-field tags.
 type Error struct {
@@ -23,7 +26,11 @@ type CustomValidator struct {
 
 // New creates a validator ready for echo.Validator assignment.
 func New() *CustomValidator {
-	return &CustomValidator{V: validator.New()}
+	v := validator.New()
+	_ = v.RegisterValidation("alphanum_underscore", func(fl validator.FieldLevel) bool {
+		return alphanumUnderscoreRegex.MatchString(fl.Field().String())
+	})
+	return &CustomValidator{V: v}
 }
 
 // Validate implements echo.Validator.

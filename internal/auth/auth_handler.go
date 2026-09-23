@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"ArifulProtik/TownHall/pkg/apperror"
@@ -29,6 +30,9 @@ func (h *Handler) RegisterRoutes(e *echo.Group) {
 	e.POST("/login", h.Login)
 	e.POST("/refresh", h.Refresh)
 	protected := e.Group("", h.AuthMiddleware())
+	protected.GET("/me", h.Me)
+	protected.GET("/check-username", h.CheckUsername)
+	protected.POST("/onboarding", h.SetupUsername)
 	protected.POST("/logout", h.Logout)
 	protected.POST("/logout-all", h.LogoutAll)
 }
@@ -215,6 +219,108 @@ func (h *Handler) LogoutAll(c *echo.Context) error {
 	}
 	clearRefreshCookie(c, h.svc.GetAppEnv() == "production")
 	return c.JSON(http.StatusOK, response.Map{"status": "ok"})
+}
+
+// Me returns the authenticated user's profile.
+func (h *Handler) Me(c *echo.Context) error {
+	rid, _ := c.Get(logger.RequestIDKey).(string)
+	log := logger.WithRequestID(h.log, rid)
+
+	uid, _ := c.Get(UserIDKey).(string)
+	if uid == "" {
+		log.Warn("me: missing user id")
+		return c.JSON(http.StatusUnauthorized, response.Map{"error": "unauthorized", "code": "unauthorized"})
+	}
+	ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
+	u, err := h.svc.GetUser(ctx, uid)
+	if err != nil {
+		var app *apperror.AppError
+		if errors.As(err, &app) {
+			if app.Status >= 500 {
+				log.Error("me: service error", slog.Any("error", err))
+			} else {
+				log.Warn("me: rejected", slog.Int("status", app.Status), slog.String("code", app.Code))
+			}
+			return c.JSON(app.Status, response.Map{"error": app.Message, "code": app.Code})
+		}
+		log.Error("me: unexpected error", slog.Any("error", err))
+		return c.JSON(http.StatusInternalServerError, response.Map{"error": "internal server error"})
+	}
+	return c.JSON(http.StatusOK, ToUserResponse(u))
+}
+
+// CheckUsername verifies if a username is available.
+func (h *Handler) CheckUsername(c *echo.Context) error {
+	rid, _ := c.Get(logger.RequestIDKey).(string)
+	log := logger.WithRequestID(h.log, rid)
+
+	uid, _ := c.Get(UserIDKey).(string)
+	if uid == "" {
+		log.Warn("check-username: missing user id")
+		return c.JSON(http.StatusUnauthorized, response.Map{"error": "unauthorized", "code": "unauthorized"})
+	}
+
+	qUsername := c.QueryParam("username")
+	if strings.TrimSpace(qUsername) == "" {
+		return c.JSON(http.StatusBadRequest, response.Map{"error": "username query parameter is required"})
+	}
+
+	ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
+	avail, reason, err := h.svc.CheckUsername(ctx, uid, qUsername)
+	if err != nil {
+		log.Error("check-username: service error", slog.Any("error", err))
+		return c.JSON(http.StatusInternalServerError, response.Map{"error": "internal server error"})
+	}
+
+	return c.JSON(http.StatusOK, CheckUsernameResponse{
+		Available: avail,
+		Reason:    reason,
+	})
+}
+
+// SetupUsername sets the authenticated user's handle.
+func (h *Handler) SetupUsername(c *echo.Context) error {
+	rid, _ := c.Get(logger.RequestIDKey).(string)
+	log := logger.WithRequestID(h.log, rid)
+
+	uid, _ := c.Get(UserIDKey).(string)
+	if uid == "" {
+		log.Warn("setup-username: missing user id")
+		return c.JSON(http.StatusUnauthorized, response.Map{"error": "unauthorized", "code": "unauthorized"})
+	}
+
+	var req SetupUsernameRequest
+	if err := c.Bind(&req); err != nil {
+		log.Warn("setup-username: bad request body", slog.Any("error", err))
+		return c.JSON(http.StatusBadRequest, response.Map{"error": "invalid request body"})
+	}
+	if err := c.Validate(&req); err != nil {
+		var ve *validation.Error
+		if errors.As(err, &ve) {
+			log.Warn("setup-username: validation failed", slog.Any("fields", ve.Fields))
+			return c.JSON(http.StatusBadRequest, response.Map{"error": "validation failed", "fields": ve.Fields})
+		}
+		log.Warn("setup-username: validation failed", slog.Any("error", err))
+		return c.JSON(http.StatusBadRequest, response.Map{"error": "validation failed"})
+	}
+
+	ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
+	u, err := h.svc.SetupUsername(ctx, uid, req.Username)
+	if err != nil {
+		var app *apperror.AppError
+		if errors.As(err, &app) {
+			if app.Status >= 500 {
+				log.Error("setup-username: service error", slog.Any("error", err))
+			} else {
+				log.Warn("setup-username: rejected", slog.Int("status", app.Status), slog.String("code", app.Code))
+			}
+			return c.JSON(app.Status, response.Map{"error": app.Message, "code": app.Code})
+		}
+		log.Error("setup-username: unexpected error", slog.Any("error", err))
+		return c.JSON(http.StatusInternalServerError, response.Map{"error": "internal server error"})
+	}
+
+	return c.JSON(http.StatusOK, ToUserResponse(u))
 }
 
 // errRateLimited marks a request already rejected with 429.

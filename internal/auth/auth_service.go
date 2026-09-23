@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"strings"
 	"time"
 
@@ -256,4 +257,62 @@ func (s *Service) LogoutAll(ctx context.Context, userID string) error {
 		return apperror.Internal()
 	}
 	return nil
+}
+
+// GetUser retrieves an existing user by ID.
+func (s *Service) GetUser(ctx context.Context, id string) (*ent.User, error) {
+	u, err := s.db.User.Get(ctx, id)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, apperror.New(http.StatusNotFound, "user not found", "not_found")
+		}
+		return nil, err
+	}
+	return u, nil
+}
+
+// CheckUsername checks whether the given username is available.
+// If the caller already owns the username, it is considered available.
+func (s *Service) CheckUsername(ctx context.Context, currentUserID, rawUsername string) (bool, string, error) {
+	log := logger.WithContext(ctx, s.log)
+	username := strings.ToLower(strings.TrimSpace(rawUsername))
+
+	if len(username) < 3 || len(username) > 30 {
+		return false, "invalid_length", nil
+	}
+
+	exists, err := s.db.User.Query().
+		Where(
+			user.UsernameEQ(username),
+			user.IDNEQ(currentUserID),
+		).
+		Exist(ctx)
+	if err != nil {
+		log.Error("check username: query failed", slog.Any("error", err))
+		return false, "", apperror.Internal()
+	}
+
+	if exists {
+		return false, "already_taken", nil
+	}
+	return true, "", nil
+}
+
+// SetupUsername sets or updates the authenticated user's username.
+func (s *Service) SetupUsername(ctx context.Context, userID, rawUsername string) (*ent.User, error) {
+	log := logger.WithContext(ctx, s.log)
+	username := strings.ToLower(strings.TrimSpace(rawUsername))
+
+	u, err := s.db.User.UpdateOneID(userID).
+		SetUsername(username).
+		Save(ctx)
+	if err != nil {
+		if ent.IsConstraintError(err) {
+			log.Warn("setup username: duplicate username", slog.String("username", username))
+			return nil, apperror.Conflict("username is already taken")
+		}
+		log.Error("setup username: update failed", slog.Any("error", err))
+		return nil, apperror.Internal()
+	}
+	return u, nil
 }

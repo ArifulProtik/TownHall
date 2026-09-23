@@ -11,6 +11,7 @@ import SpacesPage from '@/features/spaces/SpacesPage';
 import FeedPage from '@/features/feed/FeedPage';
 import ProfilePage from '@/features/profile/ProfilePage';
 import DirectMessagesPage from '@/pages/DirectMessagesPage';
+import OnboardingPage from '@/features/auth/OnboardingPage';
 
 export const routes: RouteObject[] = [
   {
@@ -30,6 +31,14 @@ export const routes: RouteObject[] = [
           { path: 'feed', element: <FeedPage /> },
           { path: 'u/:handle', element: <ProfilePage /> },
         ],
+      },
+      {
+        element: (
+          <RequireAuth>
+            <AuthLayout />
+          </RequireAuth>
+        ),
+        children: [{ path: 'onboarding', element: <OnboardingPage /> }],
       },
       {
         element: (

@@ -243,3 +243,130 @@ func tokenFrom(t *testing.T, e *echo.Echo, h *Handler) string {
 	require.NotEmpty(t, tok)
 	return tok
 }
+
+func TestMeHandler(t *testing.T) {
+	e, h, _ := newTestHandler(t)
+	signupRec := doSignup(t, e, h, `{"name":"Joe","email":"joe@example.com","password":"password123"}`)
+	require.Equal(t, http.StatusCreated, signupRec.Code)
+
+	var signupBody map[string]any
+	require.NoError(t, json.Unmarshal(signupRec.Body.Bytes(), &signupBody))
+	uid, _ := signupBody["id"].(string)
+	require.NotEmpty(t, uid)
+
+	// Authenticated request → 200 with user response.
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.Set(UserIDKey, uid)
+	c.Set(logger.RequestIDKey, "req-me-1")
+	require.NoError(t, h.Me(c))
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var meBody map[string]any
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &meBody))
+	assert.Equal(t, "Joe", meBody["name"])
+	assert.Equal(t, "joe@example.com", meBody["email"])
+
+	// Unauthenticated request → 401.
+	reqAnon := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
+	recAnon := httptest.NewRecorder()
+	cAnon := e.NewContext(reqAnon, recAnon)
+	cAnon.Set(logger.RequestIDKey, "req-me-anon")
+	require.NoError(t, h.Me(cAnon))
+	assert.Equal(t, http.StatusUnauthorized, recAnon.Code)
+}
+
+func TestCheckUsernameHandler(t *testing.T) {
+	e, h, _ := newTestHandler(t)
+	signupRec := doSignup(t, e, h, `{"name":"Tester","email":"check@example.com","password":"password123"}`)
+	require.Equal(t, http.StatusCreated, signupRec.Code)
+
+	var u map[string]any
+	require.NoError(t, json.Unmarshal(signupRec.Body.Bytes(), &u))
+	uid, _ := u["id"].(string)
+	require.NotEmpty(t, uid)
+
+	// 1. Unauthenticated -> 401
+	reqAnon := httptest.NewRequest(http.MethodGet, "/api/v1/auth/check-username?username=cool_name", nil)
+	recAnon := httptest.NewRecorder()
+	cAnon := e.NewContext(reqAnon, recAnon)
+	require.NoError(t, h.CheckUsername(cAnon))
+	assert.Equal(t, http.StatusUnauthorized, recAnon.Code)
+
+	// 2. Missing query param -> 400
+	reqNoParam := httptest.NewRequest(http.MethodGet, "/api/v1/auth/check-username", nil)
+	recNoParam := httptest.NewRecorder()
+	cNoParam := e.NewContext(reqNoParam, recNoParam)
+	cNoParam.Set(UserIDKey, uid)
+	require.NoError(t, h.CheckUsername(cNoParam))
+	assert.Equal(t, http.StatusBadRequest, recNoParam.Code)
+
+	// 3. Authenticated, available -> 200 with available=true
+	reqAuth := httptest.NewRequest(http.MethodGet, "/api/v1/auth/check-username?username=cool_name", nil)
+	recAuth := httptest.NewRecorder()
+	cAuth := e.NewContext(reqAuth, recAuth)
+	cAuth.Set(UserIDKey, uid)
+	require.NoError(t, h.CheckUsername(cAuth))
+	assert.Equal(t, http.StatusOK, recAuth.Code)
+	var availBody CheckUsernameResponse
+	require.NoError(t, json.Unmarshal(recAuth.Body.Bytes(), &availBody))
+	assert.True(t, availBody.Available)
+}
+
+func TestSetupUsernameHandler(t *testing.T) {
+	e, h, _ := newTestHandler(t)
+	signupRec := doSignup(t, e, h, `{"name":"Onboard","email":"onboard@example.com","password":"password123"}`)
+	require.Equal(t, http.StatusCreated, signupRec.Code)
+
+	var u map[string]any
+	require.NoError(t, json.Unmarshal(signupRec.Body.Bytes(), &u))
+	uid, _ := u["id"].(string)
+	require.NotEmpty(t, uid)
+
+	// 1. Unauthenticated -> 401
+	reqAnon := httptest.NewRequest(http.MethodPost, "/api/v1/auth/onboarding", strings.NewReader(`{"username":"onboard_user"}`))
+	reqAnon.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	recAnon := httptest.NewRecorder()
+	cAnon := e.NewContext(reqAnon, recAnon)
+	require.NoError(t, h.SetupUsername(cAnon))
+	assert.Equal(t, http.StatusUnauthorized, recAnon.Code)
+
+	// 2. Invalid validation (too short / illegal chars) -> 400
+	reqInvalid := httptest.NewRequest(http.MethodPost, "/api/v1/auth/onboarding", strings.NewReader(`{"username":"no!"}`))
+	reqInvalid.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	recInvalid := httptest.NewRecorder()
+	cInvalid := e.NewContext(reqInvalid, recInvalid)
+	cInvalid.Set(UserIDKey, uid)
+	require.NoError(t, h.SetupUsername(cInvalid))
+	assert.Equal(t, http.StatusBadRequest, recInvalid.Code)
+
+	// 3. Setup username successfully -> 200
+	reqSuccess := httptest.NewRequest(http.MethodPost, "/api/v1/auth/onboarding", strings.NewReader(`{"username":"onboard_user"}`))
+	reqSuccess.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	recSuccess := httptest.NewRecorder()
+	cSuccess := e.NewContext(reqSuccess, recSuccess)
+	cSuccess.Set(UserIDKey, uid)
+	require.NoError(t, h.SetupUsername(cSuccess))
+	assert.Equal(t, http.StatusOK, recSuccess.Code)
+
+	var userResp UserResponse
+	require.NoError(t, json.Unmarshal(recSuccess.Body.Bytes(), &userResp))
+	require.NotNil(t, userResp.Username)
+	assert.Equal(t, "onboard_user", *userResp.Username)
+
+	// 4. Duplicate username conflict -> 409
+	signupRec2 := doSignup(t, e, h, `{"name":"Second","email":"second@example.com","password":"password123"}`)
+	require.Equal(t, http.StatusCreated, signupRec2.Code)
+	var u2 map[string]any
+	require.NoError(t, json.Unmarshal(signupRec2.Body.Bytes(), &u2))
+	uid2, _ := u2["id"].(string)
+
+	reqDup := httptest.NewRequest(http.MethodPost, "/api/v1/auth/onboarding", strings.NewReader(`{"username":"onboard_user"}`))
+	reqDup.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	recDup := httptest.NewRecorder()
+	cDup := e.NewContext(reqDup, recDup)
+	cDup.Set(UserIDKey, uid2)
+	require.NoError(t, h.SetupUsername(cDup))
+	assert.Equal(t, http.StatusConflict, recDup.Code)
+}
