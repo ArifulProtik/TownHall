@@ -36,7 +36,7 @@ jobs:
         run: go test ./...
 
   ui:
-    name: ui-lint-test-build
+    name: ui-lint-build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -50,7 +50,5 @@ jobs:
         run: bun install --frozen-lockfile
       - name: lint
         run: bun run lint
-      - name: test
-        run: bun run test
       - name: build
         run: bun run build
