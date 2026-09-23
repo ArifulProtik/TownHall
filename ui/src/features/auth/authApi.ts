@@ -56,6 +56,17 @@ export const authApi = createApi({
         }
       },
     }),
+    refresh: build.query<TokenResponse, void>({
+      query: () => ({ url: '/auth/refresh', method: 'POST' }),
+      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          dispatch(setCredentials({ accessToken: data.access_token }));
+        } catch {
+          // No usable session (missing/expired cookie); base query already cleared credentials.
+        }
+      },
+    }),
     logout: build.mutation<StatusResponse, void>({
       query: () => ({ url: '/auth/logout', method: 'POST' }),
     }),
@@ -65,5 +76,10 @@ export const authApi = createApi({
   }),
 });
 
-export const { useSignupMutation, useLoginMutation, useLogoutMutation, useLogoutAllMutation } =
-  authApi;
+export const {
+  useSignupMutation,
+  useLoginMutation,
+  useRefreshQuery,
+  useLogoutMutation,
+  useLogoutAllMutation,
+} = authApi;

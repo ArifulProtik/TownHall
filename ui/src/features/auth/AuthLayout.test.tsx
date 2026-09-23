@@ -32,13 +32,13 @@ function renderAuthAt(path: string) {
 
 test('renders the login card inside the animated layout', () => {
   renderAuthAt('/login');
-  expect(screen.getByRole('heading', { name: 'Log in to TownHall' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Log in' })).toBeInTheDocument();
 });
 
 test('navigates login to signup with the layout intact', async () => {
   const user = userEvent.setup();
   const { router } = renderAuthAt('/login');
   await user.click(screen.getByRole('link', { name: 'Sign up' }));
-  expect(await screen.findByRole('heading', { name: 'Create your account' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: 'Create account' })).toBeInTheDocument();
   expect(router.state.location.pathname).toBe('/signup');
 });

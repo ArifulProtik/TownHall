@@ -1,41 +1,47 @@
-import { Outlet, useLocation } from 'react-router';
+import { Stack } from '@phosphor-icons/react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { Outlet, useLocation } from 'react-router';
+import { AuthHero } from '@/features/auth/AuthHero';
 import { ThemeToggle } from '@/components/ThemeToggle';
-
-const blobTransition = { duration: 18, repeat: Infinity, ease: 'easeInOut' as const };
 
 export function AuthLayout() {
   const reduceMotion = useReducedMotion();
   const location = useLocation();
+
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-surface px-4">
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-        <motion.div
-          className="absolute -left-24 top-1/4 h-96 w-96 rounded-full bg-primary-container/50 blur-3xl"
-          animate={reduceMotion ? undefined : { x: [0, 40, -20, 0], y: [0, -30, 20, 0] }}
-          transition={blobTransition}
-        />
-        <motion.div
-          className="absolute -right-24 bottom-1/4 h-96 w-96 rounded-full bg-tertiary-container/50 blur-3xl"
-          animate={reduceMotion ? undefined : { x: [0, -30, 25, 0], y: [0, 25, -20, 0] }}
-          transition={{ ...blobTransition, duration: 22 }}
-        />
+    <div className="flex min-h-screen bg-background text-foreground">
+      <AuthHero />
+
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+        <header className="flex items-center justify-between px-6 pt-5 sm:px-8">
+          <div className="flex items-center gap-2.5 lg:invisible">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card">
+              <Stack className="h-4 w-4 text-primary" weight="duotone" aria-hidden="true" />
+            </div>
+            <span className="font-heading text-base font-semibold tracking-tight">TownHall</span>
+          </div>
+          <ThemeToggle />
+        </header>
+
+        <main className="flex min-h-0 flex-1 overflow-y-auto px-6 py-6 sm:px-8">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={location.pathname}
+              initial={reduceMotion ? { opacity: 1 } : { opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduceMotion ? { opacity: 1 } : { opacity: 0, y: -8 }}
+              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+              className="m-auto w-full max-w-[440px] rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8"
+            >
+              <Outlet />
+            </motion.div>
+          </AnimatePresence>
+        </main>
+
+        <footer className="px-6 pb-5 text-center text-xs text-muted-foreground/60 sm:px-8">
+          © {new Date().getFullYear()} TownHall
+        </footer>
       </div>
-      <div className="absolute right-4 top-4">
-        <ThemeToggle />
-      </div>
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={location.pathname}
-          initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -12 }}
-          transition={{ duration: 0.25 }}
-          className="relative w-full max-w-sm"
-        >
-          <Outlet />
-        </motion.div>
-      </AnimatePresence>
-    </main>
+    </div>
   );
 }

@@ -1,7 +1,7 @@
 import { NavLink, Outlet } from 'react-router';
 import { TopAppBar } from '@/components/TopAppBar';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { Avatar } from '@/components/Avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 const railItems = [
   { to: '/spaces', label: 'Spaces', initials: 'Sp' },
@@ -11,18 +11,23 @@ const railItems = [
 
 export function AppShell() {
   return (
-    <div className="flex min-h-screen bg-surface text-on-surface">
-      <nav aria-label="Spaces" className="flex w-16 flex-col items-center gap-2 bg-surface-container py-3 max-sm:hidden">
+    <div className="flex min-h-screen bg-background text-foreground">
+      <nav
+        aria-label="Spaces"
+        className="flex w-16 flex-col items-center gap-2 bg-muted py-3 max-sm:hidden"
+      >
         {railItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             aria-label={item.label}
             className={({ isActive }) =>
-              `rounded-m3-md p-1 ${isActive ? 'bg-primary-container' : ''}`
+              `rounded-md p-1 ${isActive ? 'bg-accent' : ''}`
             }
           >
-            <Avatar initials={item.initials} />
+            <Avatar>
+              <AvatarFallback>{item.initials}</AvatarFallback>
+            </Avatar>
           </NavLink>
         ))}
       </nav>
@@ -31,14 +36,19 @@ export function AppShell() {
         <div className="flex-1 p-4">
           <Outlet />
         </div>
-        <nav aria-label="Primary" className="hidden gap-1 bg-surface-container p-2 max-sm:flex">
+        <nav
+          aria-label="Primary"
+          className="hidden gap-1 bg-muted p-2 max-sm:flex"
+        >
           {railItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `flex-1 rounded-m3-md px-3 py-2 text-center text-sm ${
-                  isActive ? 'bg-primary-container text-on-primary-container' : 'text-on-surface-variant'
+                `flex-1 rounded-md px-3 py-2 text-center text-sm ${
+                  isActive
+                    ? 'bg-accent text-accent-foreground'
+                    : 'text-muted-foreground'
                 }`
               }
             >

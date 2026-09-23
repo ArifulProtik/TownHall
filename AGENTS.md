@@ -3,6 +3,7 @@
 ## Commands (use Makefile)
 
 - `make dev` — live reload via air (binary `./tmp/main`, config `.air.toml`)
+- `make dev-all` — backend (air) + frontend (`bun run dev` in `ui/`) concurrently (Ctrl-C stops both)
 - `make run` / `make build` — run or build `./cmd/api`
 - `make test` / `go test ./internal/auth/ -run TestSignupEmail -v` — all / focused tests
 - `make check` (= `go vet ./...` + `golangci-lint run ./...` + `go test ./...`)

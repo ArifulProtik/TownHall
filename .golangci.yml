@@ -34,7 +34,9 @@ linters:
       - path: _test\.go$
         linters: [errcheck, gosec]
       - path: tmp/
-        linters: [all]
+        text: ".*"
+      - path: ui/
+        text: ".*"
 
 # NOTE: gofumpt intentionally omitted (2026-09): golangci-lint v2.11.4
 # reports nondeterministic gofumpt findings (random files per run) while

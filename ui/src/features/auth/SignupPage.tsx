@@ -1,16 +1,34 @@
+import {
+  CircleNotch,
+  Eye,
+  EyeSlash,
+  WarningCircle,
+} from '@phosphor-icons/react';
 import { Link, useNavigate } from 'react-router';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { motion, useReducedMotion } from 'motion/react';
 import { useSignupMutation } from '@/features/auth/authApi';
 import { getAuthErrorMessage } from '@/features/auth/authErrors';
 import { SignupSchema, type SignupFormValues } from '@/features/auth/authSchema';
-import { M3Button } from '@/components/M3Button';
-import { M3Card } from '@/components/M3Card';
-import { M3TextField } from '@/components/M3TextField';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Field, FieldError, FieldLabel } from '@/components/ui/field';
+
+const stagger = (index: number, reduce: boolean | null) =>
+  reduce
+    ? { initial: { opacity: 0 }, animate: { opacity: 1 }, transition: { duration: 0.2 } }
+    : {
+        initial: { opacity: 0, y: 10 },
+        animate: { opacity: 1, y: 0 },
+        transition: { delay: 0.05 * index, duration: 0.3, ease: [0.25, 0.1, 0.25, 1] as const },
+      };
 
 export default function SignupPage() {
+  const reduceMotion = useReducedMotion();
   const [formError, setFormError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [signup, { isLoading }] = useSignupMutation();
   const navigate = useNavigate();
   const {
@@ -30,47 +48,121 @@ export default function SignupPage() {
   }
 
   return (
-    <M3Card className="w-full max-w-sm space-y-4 p-6">
-      <h1 className="text-xl font-medium text-on-surface">Create your account</h1>
-      {formError ? (
-        <p role="alert" className="text-sm text-error">
-          {formError}
+    <div className="space-y-5">
+      <motion.div className="space-y-1.5" {...stagger(0, reduceMotion)}>
+        <h1 className="font-heading text-2xl font-semibold tracking-tight">Create account</h1>
+        <p className="text-sm text-muted-foreground">
+          A minute to sign up. A lifetime of communities.
         </p>
+      </motion.div>
+
+      {formError ? (
+        <motion.div
+          role="alert"
+          initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2.5 text-sm text-destructive"
+        >
+          <WarningCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>{formError}</span>
+        </motion.div>
       ) : null}
+
       <form onSubmit={handleSubmit(onValid)} noValidate className="space-y-4">
-        <M3TextField
-          id="name"
-          label="Name"
-          autoComplete="name"
-          error={errors.name?.message}
-          {...register('name')}
-        />
-        <M3TextField
-          id="email"
-          label="Email"
-          type="email"
-          autoComplete="email"
-          error={errors.email?.message}
-          {...register('email')}
-        />
-        <M3TextField
-          id="password"
-          label="Password"
-          type="password"
-          autoComplete="new-password"
-          error={errors.password?.message}
-          {...register('password')}
-        />
-        <M3Button type="submit" loading={isLoading} className="w-full">
-          {isLoading ? 'Signing up…' : 'Sign up'}
-        </M3Button>
+        <motion.div {...stagger(1, reduceMotion)}>
+          <Field className="gap-1.5">
+            <FieldLabel htmlFor="name">Name</FieldLabel>
+            <Input
+              id="name"
+              autoComplete="name"
+              placeholder="Joe"
+              aria-invalid={errors.name ? true : undefined}
+              {...register('name')}
+            />
+            {errors.name?.message ? (
+              <FieldError className="text-xs">{errors.name.message}</FieldError>
+            ) : null}
+          </Field>
+        </motion.div>
+
+        <motion.div {...stagger(2, reduceMotion)}>
+          <Field className="gap-1.5">
+            <FieldLabel htmlFor="email">Email</FieldLabel>
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              placeholder="you@example.com"
+              aria-invalid={errors.email ? true : undefined}
+              {...register('email')}
+            />
+            {errors.email?.message ? (
+              <FieldError className="text-xs">{errors.email.message}</FieldError>
+            ) : null}
+          </Field>
+        </motion.div>
+
+        <motion.div {...stagger(3, reduceMotion)}>
+          <Field className="gap-1.5">
+            <FieldLabel htmlFor="password">Password</FieldLabel>
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="new-password"
+                placeholder="••••••••"
+                className="pr-10"
+                aria-invalid={errors.password ? true : undefined}
+                {...register('password')}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground"
+                onClick={() => setShowPassword((prev) => !prev)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? (
+                  <EyeSlash aria-hidden="true" />
+                ) : (
+                  <Eye aria-hidden="true" />
+                )}
+              </Button>
+            </div>
+            {errors.password?.message ? (
+              <FieldError className="text-xs">{errors.password.message}</FieldError>
+            ) : null}
+          </Field>
+        </motion.div>
+
+        <motion.div className="space-y-4 pt-1" {...stagger(4, reduceMotion)}>
+          <Button
+            type="submit"
+            disabled={isLoading}
+            className="h-10 w-full text-sm transition-transform duration-200 active:scale-[0.98]"
+          >
+            {isLoading ? (
+              <>
+                <CircleNotch className="animate-spin" aria-hidden="true" />
+                Signing up…
+              </>
+            ) : (
+              'Sign up'
+            )}
+          </Button>
+
+          <p className="text-center text-sm text-muted-foreground">
+            Already have an account?{' '}
+            <Link
+              to="/login"
+              className="font-semibold text-foreground underline-offset-4 transition-colors hover:underline"
+            >
+              Log in
+            </Link>
+          </p>
+        </motion.div>
       </form>
-      <p className="text-sm text-on-surface-variant">
-        Have an account?{' '}
-        <Link to="/login" className="text-primary underline">
-          Log in
-        </Link>
-      </p>
-    </M3Card>
+    </div>
   );
 }

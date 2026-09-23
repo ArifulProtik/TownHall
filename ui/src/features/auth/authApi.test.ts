@@ -51,3 +51,25 @@ test('login mutation fulfillment stores the token', async () => {
   expect(selectAccessToken(store.getState())).toBe('login-token');
   expect(selectIsAuthenticated(store.getState())).toBe(true);
 });
+
+test('refresh query fulfillment restores the session', async () => {
+  vi.stubGlobal('Request', TestRequest);
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.endsWith('/auth/refresh'))
+        return json({ access_token: 'restored-token', expires_in: 900 });
+      return json({ error: 'not found' }, 404);
+    }),
+  );
+
+  const store = createAppStore();
+  expect(selectIsAuthenticated(store.getState())).toBe(false);
+
+  const data = await store.dispatch(authApi.endpoints.refresh.initiate()).unwrap();
+
+  expect(data.access_token).toBe('restored-token');
+  expect(selectAccessToken(store.getState())).toBe('restored-token');
+  expect(selectIsAuthenticated(store.getState())).toBe(true);
+});

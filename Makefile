@@ -23,6 +23,10 @@ help: ## Show this help with available commands
 dev: ## Run with live reload (air)
 	@air
 
+.PHONY: dev-all
+dev-all: ## Run backend (air) + frontend (bun) concurrently
+	@trap 'kill 0' INT TERM; air & bun --cwd=ui run dev & wait
+
 .PHONY: run
 run: ## Run the API without reload (go run)
 	@go run $(MAIN_PKG)

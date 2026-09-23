@@ -5,6 +5,7 @@ import LoginPage from '@/features/auth/LoginPage';
 import SignupPage from '@/features/auth/SignupPage';
 import { AuthLayout } from '@/features/auth/AuthLayout';
 import { RequireAuth } from '@/features/auth/RequireAuth';
+import { RequireGuest } from '@/features/auth/RequireGuest';
 import { AppShell } from '@/components/AppShell';
 import SpacesPage from '@/features/spaces/SpacesPage';
 import FeedPage from '@/features/feed/FeedPage';
@@ -29,7 +30,11 @@ export const routes: RouteObject[] = [
         ],
       },
       {
-        element: <AuthLayout />,
+        element: (
+          <RequireGuest>
+            <AuthLayout />
+          </RequireGuest>
+        ),
         children: [
           { path: 'login', element: <LoginPage /> },
           { path: 'signup', element: <SignupPage /> },
