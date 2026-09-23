@@ -21,7 +21,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['src/components/ui/**'],
+    files: ['src/components/ui/**', 'src/app/router.tsx'],
     rules: {
       'react-refresh/only-export-components': 'off',
     },

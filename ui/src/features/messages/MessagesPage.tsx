@@ -1,7 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { ChatCircleDots } from '@phosphor-icons/react';
 
-export default function DirectMessagesPage() {
+export default function MessagesPage() {
   return (
     <div className="flex h-full min-h-[400px] items-center justify-center p-6">
       <Card className="max-w-md text-center">
