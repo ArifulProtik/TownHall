@@ -12,24 +12,11 @@ import (
 // UserIDKey is the echo-context key carrying the authenticated user id.
 const UserIDKey = "user_id"
 
-// publicPaths bypass the auth middleware (signup, login, refresh, health, metrics).
-var publicPaths = map[string]struct{}{
-	"/api/v1/auth/signup":  {},
-	"/api/v1/auth/login":   {},
-	"/api/v1/auth/refresh": {},
-	"/api/v1/auth/health":  {},
-	"/metrics":             {},
-}
-
 // Middleware validates Bearer access JWTs and injects the user id.
 // Every failure returns a generic 401 without internal details.
 func Middleware(secret string) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
-			path := strings.TrimSuffix(c.Request().URL.Path, "/")
-			if _, ok := publicPaths[path]; ok {
-				return next(c)
-			}
 			parts := strings.SplitN(c.Request().Header.Get("Authorization"), " ", 2)
 			if len(parts) != 2 || !strings.EqualFold(parts[0], "bearer") || parts[1] == "" {
 				return c.JSON(http.StatusUnauthorized, response.Map{"error": "unauthorized"})

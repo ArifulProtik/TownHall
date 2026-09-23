@@ -370,3 +370,24 @@ func TestSetupUsernameHandler(t *testing.T) {
 	require.NoError(t, h.SetupUsername(cDup))
 	assert.Equal(t, http.StatusConflict, recDup.Code)
 }
+
+func TestRegisterRoutes_PublicAndProtected(t *testing.T) {
+	e, h, _ := newTestHandler(t)
+
+	api := e.Group("/api/v1")
+	public := api.Group("")
+	protected := api.Group("", h.AuthMiddleware())
+	h.RegisterRoutes(public, protected)
+
+	// Public endpoint /health should return 200 without Authorization header
+	reqHealth := httptest.NewRequest(http.MethodGet, "/api/v1/auth/health", nil)
+	recHealth := httptest.NewRecorder()
+	e.ServeHTTP(recHealth, reqHealth)
+	assert.Equal(t, http.StatusOK, recHealth.Code)
+
+	// Protected endpoint /me should return 401 without Authorization header
+	reqMe := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
+	recMe := httptest.NewRecorder()
+	e.ServeHTTP(recMe, reqMe)
+	assert.Equal(t, http.StatusUnauthorized, recMe.Code)
+}

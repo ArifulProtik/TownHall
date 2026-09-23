@@ -71,11 +71,3 @@ func mustMintEmpty(t *testing.T, secret string) string {
 	require.NoError(t, err)
 	return tok
 }
-
-func TestMiddleware_SkipPaths(t *testing.T) {
-	for _, p := range []string{"/api/v1/auth/signup", "/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/health", "/metrics", "/api/v1/auth/login/"} {
-		rec := runMiddleware("s3cret", http.MethodPost, p, "")
-		assert.Equal(t, http.StatusOK, rec.Code, p)
-		assert.Empty(t, rec.Body.String(), p)
-	}
-}

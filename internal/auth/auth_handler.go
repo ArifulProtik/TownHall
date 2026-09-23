@@ -23,21 +23,23 @@ type Handler struct {
 	log *slog.Logger
 }
 
-// RegisterRoutes mounts the auth endpoints on e.
-func (h *Handler) RegisterRoutes(e *echo.Group) {
-	e.GET("/health", h.HealthCheck)
-	e.POST("/signup", h.SignupEmail)
-	e.POST("/login", h.Login)
-	e.POST("/refresh", h.Refresh)
-	protected := e.Group("", h.AuthMiddleware())
-	protected.GET("/me", h.Me)
-	protected.GET("/check-username", h.CheckUsername)
-	protected.POST("/onboarding", h.SetupUsername)
-	protected.POST("/logout", h.Logout)
-	protected.POST("/logout-all", h.LogoutAll)
+// RegisterRoutes mounts the auth endpoints on the public and protected groups.
+func (h *Handler) RegisterRoutes(public *echo.Group, protected *echo.Group) {
+	authPublic := public.Group("/auth")
+	authPublic.GET("/health", h.HealthCheck)
+	authPublic.POST("/signup", h.SignupEmail)
+	authPublic.POST("/login", h.Login)
+	authPublic.POST("/refresh", h.Refresh)
+
+	authProtected := protected.Group("/auth")
+	authProtected.GET("/me", h.Me)
+	authProtected.GET("/check-username", h.CheckUsername)
+	authProtected.POST("/onboarding", h.SetupUsername)
+	authProtected.POST("/logout", h.Logout)
+	authProtected.POST("/logout-all", h.LogoutAll)
 }
 
-// AuthMiddleware validates Bearer tokens for the protected auth routes.
+// AuthMiddleware validates Bearer tokens for protected routes.
 func (h *Handler) AuthMiddleware() echo.MiddlewareFunc {
 	return Middleware(h.svc.config.JWTSecret)
 }
