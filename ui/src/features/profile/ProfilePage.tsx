@@ -9,17 +9,24 @@ import { Button } from '@/components/ui/button';
 
 export default function ProfilePage() {
   const { handle = 'me' } = useParams<{ handle?: string }>();
+  // Remount per handle so tab, header, and edit state never leak across profiles.
+  return <ProfileView key={handle} handle={handle} />;
+}
+
+function ProfileView({ handle }: { handle: string }) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('posts');
 
   const {
     data: profile,
-    isLoading,
+    currentData,
+    isFetching,
     isError,
     error,
   } = useGetProfileQuery(handle || 'me');
 
-  if (isLoading) {
+  // Skeleton on first load only; background refetches keep showing content.
+  if (isFetching && !currentData) {
     return (
       <div className="mx-auto w-full max-w-5xl animate-pulse">
         {/* Hero skeleton */}

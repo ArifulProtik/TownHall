@@ -51,11 +51,11 @@ var (
 		{Name: "username", Type: field.TypeString, Unique: true, Nullable: true},
 		{Name: "provider", Type: field.TypeEnum, Enums: []string{"google", "github", "email"}, Default: "google"},
 		{Name: "email_verified", Type: field.TypeBool, Default: false},
-		{Name: "bio", Type: field.TypeString, Nullable: true, Size: 280},
-		{Name: "avatar_url", Type: field.TypeString, Nullable: true, Size: 1000},
-		{Name: "banner_url", Type: field.TypeString, Nullable: true, Size: 1000},
-		{Name: "location", Type: field.TypeString, Nullable: true, Size: 100},
-		{Name: "website", Type: field.TypeString, Nullable: true, Size: 200},
+		{Name: "bio", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "varchar(280)"}},
+		{Name: "avatar_url", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "varchar(1000)"}},
+		{Name: "banner_url", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "varchar(1000)"}},
+		{Name: "location", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "varchar(100)"}},
+		{Name: "website", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "varchar(200)"}},
 	}
 	// UsersTable holds the schema information for the "users" table.
 	UsersTable = &schema.Table{

@@ -2,6 +2,7 @@
 package profile
 
 import (
+	"strings"
 	"time"
 
 	"ArifulProtik/TownHall/ent"
@@ -28,13 +29,27 @@ type Response struct {
 }
 
 // UpdateRequest holds the editable profile fields.
+//
+// Length rules count characters (minrunes/maxrunes), matching the service
+// and ent validators. Call normalize before Validate so rules apply to the
+// trimmed values that are actually persisted.
 type UpdateRequest struct {
-	Name      *string `json:"name,omitempty" validate:"omitempty,min=2,max=100"`
-	Bio       *string `json:"bio,omitempty" validate:"omitempty,max=280"`
-	AvatarURL *string `json:"avatar_url,omitempty" validate:"omitempty,max=1000"`
-	BannerURL *string `json:"banner_url,omitempty" validate:"omitempty,max=1000"`
-	Location  *string `json:"location,omitempty" validate:"omitempty,max=100"`
-	Website   *string `json:"website,omitempty" validate:"omitempty,max=200"`
+	Name      *string `json:"name,omitempty" validate:"omitempty,minrunes=2,maxrunes=100"`
+	Bio       *string `json:"bio,omitempty" validate:"omitempty,maxrunes=280"`
+	AvatarURL *string `json:"avatar_url,omitempty" validate:"omitempty,maxrunes=1000"`
+	BannerURL *string `json:"banner_url,omitempty" validate:"omitempty,maxrunes=1000"`
+	Location  *string `json:"location,omitempty" validate:"omitempty,maxrunes=100"`
+	Website   *string `json:"website,omitempty" validate:"omitempty,maxrunes=200"`
+}
+
+// normalize trims editable fields in place so validation and persistence
+// agree on the stored values.
+func (r *UpdateRequest) normalize() {
+	for _, f := range []*string{r.Name, r.Bio, r.AvatarURL, r.BannerURL, r.Location, r.Website} {
+		if f != nil {
+			*f = strings.TrimSpace(*f)
+		}
+	}
 }
 
 // UploadResponse returns the result of a file upload to UploadThing or local storage.

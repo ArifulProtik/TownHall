@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"ArifulProtik/TownHall/internal/auth"
-	"ArifulProtik/TownHall/pkg/apperror"
 	"ArifulProtik/TownHall/pkg/logger"
 	"ArifulProtik/TownHall/pkg/response"
 	"ArifulProtik/TownHall/pkg/validation"
@@ -64,17 +63,7 @@ func (h *Handler) GetProfile(c *echo.Context) error {
 	ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
 	profile, err := h.svc.GetProfile(ctx, viewerID, handle)
 	if err != nil {
-		var app *apperror.AppError
-		if errors.As(err, &app) {
-			if app.Status >= 500 {
-				log.Error("get profile: error", slog.Any("error", err))
-			} else {
-				log.Warn("get profile: rejected", slog.Int("status", app.Status), slog.String("code", app.Code))
-			}
-			return c.JSON(app.Status, response.Map{"error": app.Message, "code": app.Code})
-		}
-		log.Error("get profile: unexpected error", slog.Any("error", err))
-		return c.JSON(http.StatusInternalServerError, response.Map{"error": "internal server error"})
+		return response.Error(c, log, err, "get profile")
 	}
 
 	return c.JSON(http.StatusOK, profile)
@@ -96,6 +85,7 @@ func (h *Handler) UpdateProfile(c *echo.Context) error {
 		log.Warn("update profile: bad request body", slog.Any("error", err))
 		return c.JSON(http.StatusBadRequest, response.Map{"error": "invalid request body"})
 	}
+	req.normalize()
 	if err := c.Validate(&req); err != nil {
 		var ve *validation.Error
 		if errors.As(err, &ve) {
@@ -109,22 +99,15 @@ func (h *Handler) UpdateProfile(c *echo.Context) error {
 	ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
 	u, err := h.svc.UpdateProfile(ctx, uid, req)
 	if err != nil {
-		var app *apperror.AppError
-		if errors.As(err, &app) {
-			if app.Status >= 500 {
-				log.Error("update profile: error", slog.Any("error", err))
-			} else {
-				log.Warn("update profile: rejected", slog.Int("status", app.Status), slog.String("code", app.Code))
-			}
-			return c.JSON(app.Status, response.Map{"error": app.Message, "code": app.Code})
-		}
-		log.Error("update profile: unexpected error", slog.Any("error", err))
-		return c.JSON(http.StatusInternalServerError, response.Map{"error": "internal server error"})
+		return response.Error(c, log, err, "update profile")
 	}
 
 	resp := ToResponse(u, uid)
 	return c.JSON(http.StatusOK, resp)
 }
+
+// maxUploadBytes caps buffered upload bodies at 8 MiB (see UploadFile).
+const maxUploadBytes = 8 * 1024 * 1024
 
 // UploadFile handles multipart image uploads.
 func (h *Handler) UploadFile(c *echo.Context) error {
@@ -150,31 +133,27 @@ func (h *Handler) UploadFile(c *echo.Context) error {
 	}
 	defer src.Close()
 
-	data, err := io.ReadAll(src)
+	// Trust-but-verify the declared size, then cap the read itself: the
+	// extra byte distinguishes "exactly at the limit" from "over it".
+	if file.Size > maxUploadBytes {
+		log.Warn("upload file: file too large", slog.Int64("size", file.Size))
+		return c.JSON(http.StatusRequestEntityTooLarge, response.Map{"error": "file exceeds the 8MB limit", "code": "file_too_large"})
+	}
+
+	data, err := io.ReadAll(io.LimitReader(src, maxUploadBytes+1))
 	if err != nil {
 		log.Error("upload file: read multipart file failed", slog.Any("error", err))
 		return c.JSON(http.StatusInternalServerError, response.Map{"error": "failed to read uploaded file"})
 	}
-
-	contentType := file.Header.Get("Content-Type")
-	if contentType == "" || contentType == "application/octet-stream" {
-		contentType = http.DetectContentType(data)
+	if int64(len(data)) > maxUploadBytes {
+		log.Warn("upload file: file too large while reading", slog.Int("bytes_read", len(data)))
+		return c.JSON(http.StatusRequestEntityTooLarge, response.Map{"error": "file exceeds the 8MB limit", "code": "file_too_large"})
 	}
 
 	ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
-	res, err := h.svc.UploadFile(ctx, file.Filename, contentType, data)
+	res, err := h.svc.UploadFile(ctx, file.Filename, data)
 	if err != nil {
-		var app *apperror.AppError
-		if errors.As(err, &app) {
-			if app.Status >= 500 {
-				log.Error("upload file: error", slog.Any("error", err))
-			} else {
-				log.Warn("upload file: rejected", slog.Int("status", app.Status), slog.String("code", app.Code))
-			}
-			return c.JSON(app.Status, response.Map{"error": app.Message, "code": app.Code})
-		}
-		log.Error("upload file: unexpected error", slog.Any("error", err))
-		return c.JSON(http.StatusInternalServerError, response.Map{"error": "internal server error"})
+		return response.Error(c, log, err, "upload file")
 	}
 
 	return c.JSON(http.StatusOK, res)

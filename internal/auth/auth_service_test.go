@@ -312,9 +312,21 @@ func TestService_ChangePassword(t *testing.T) {
 	require.ErrorAs(t, err, &appErr)
 	assert.Equal(t, 400, appErr.Status)
 
-	// Correct current password
+	// Correct current password revokes pre-existing sessions
+	_, err = svc.Login(ctx, LoginRequest{Email: "pass@example.com", Password: "oldpassword123"})
+	require.NoError(t, err)
+
 	err = svc.ChangePassword(ctx, u.ID, "oldpassword123", "newpassword123")
 	require.NoError(t, err)
+
+	n, err := svc.db.RefreshToken.Query().
+		Where(
+			refreshtoken.HasUserWith(user.IDEQ(u.ID)),
+			refreshtoken.RevokedAtIsNil(),
+		).
+		Count(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, 0, n, "password change must revoke all refresh tokens")
 
 	// Verify login with new password succeeds
 	pair, err := svc.Login(ctx, LoginRequest{Email: "pass@example.com", Password: "newpassword123"})

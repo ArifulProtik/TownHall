@@ -64,7 +64,7 @@ export function ProfileIntroCard({
         <div className="flex items-baseline justify-between mb-2">
           <div className="flex items-baseline gap-1.5">
             <h3 className="text-xl font-extrabold text-foreground">Friends</h3>
-            <p className="text-xs text-muted-foreground">{profile.followers_count || 489}</p>
+            <p className="text-xs text-muted-foreground">{profile.followers_count ?? 0}</p>
           </div>
           <button
             type="button"

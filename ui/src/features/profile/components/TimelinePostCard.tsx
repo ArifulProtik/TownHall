@@ -181,7 +181,7 @@ export function TimelinePostCard({ post, currentProfile }: TimelinePostCardProps
           {comments.map((c) => (
             <div key={c.id} className="flex items-start gap-1.5">
               <Avatar className="size-6 shrink-0">
-                {c.authorAvatar && <AvatarImage src={c.authorAvatar} alt={c.authorName} />}
+                {c.authorAvatar && <AvatarImage src={resolveMediaUrl(c.authorAvatar)} alt={c.authorName} />}
                 <AvatarFallback className="font-semibold">
                   {c.authorName.slice(0, 2).toUpperCase()}
                 </AvatarFallback>

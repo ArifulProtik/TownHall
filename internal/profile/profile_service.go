@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"ArifulProtik/TownHall/ent"
 	"ArifulProtik/TownHall/ent/user"
@@ -98,42 +99,42 @@ func (s *Service) UpdateProfile(ctx context.Context, userID string, req UpdateRe
 
 	if req.Name != nil {
 		name := strings.TrimSpace(*req.Name)
-		if len(name) < 2 || len(name) > 100 {
+		if utf8.RuneCountInString(name) < 2 || utf8.RuneCountInString(name) > 100 {
 			return nil, apperror.BadRequest("name must be between 2 and 100 characters")
 		}
 		update.SetName(name)
 	}
 	if req.Bio != nil {
 		bio := strings.TrimSpace(*req.Bio)
-		if len(bio) > 280 {
+		if utf8.RuneCountInString(bio) > 280 {
 			return nil, apperror.BadRequest("bio must not exceed 280 characters")
 		}
 		update.SetBio(bio)
 	}
 	if req.AvatarURL != nil {
 		avatarURL := strings.TrimSpace(*req.AvatarURL)
-		if len(avatarURL) > 1000 {
+		if utf8.RuneCountInString(avatarURL) > 1000 {
 			return nil, apperror.BadRequest("avatar url must not exceed 1000 characters")
 		}
 		update.SetAvatarURL(avatarURL)
 	}
 	if req.BannerURL != nil {
 		bannerURL := strings.TrimSpace(*req.BannerURL)
-		if len(bannerURL) > 1000 {
+		if utf8.RuneCountInString(bannerURL) > 1000 {
 			return nil, apperror.BadRequest("banner url must not exceed 1000 characters")
 		}
 		update.SetBannerURL(bannerURL)
 	}
 	if req.Location != nil {
 		loc := strings.TrimSpace(*req.Location)
-		if len(loc) > 100 {
+		if utf8.RuneCountInString(loc) > 100 {
 			return nil, apperror.BadRequest("location must not exceed 100 characters")
 		}
 		update.SetLocation(loc)
 	}
 	if req.Website != nil {
 		site := strings.TrimSpace(*req.Website)
-		if len(site) > 200 {
+		if utf8.RuneCountInString(site) > 200 {
 			return nil, apperror.BadRequest("website must not exceed 200 characters")
 		}
 		update.SetWebsite(site)
@@ -152,18 +153,13 @@ func (s *Service) UpdateProfile(ctx context.Context, userID string, req UpdateRe
 }
 
 // UploadFile uploads a file to UploadThing if configured, otherwise falls back to local uploads directory.
-func (s *Service) UploadFile(ctx context.Context, filename string, contentType string, data []byte) (*UploadResponse, error) {
+// The content type is sniffed from the bytes and allowlisted — the
+// client-supplied Content-Type is never trusted.
+func (s *Service) UploadFile(ctx context.Context, filename string, data []byte) (*UploadResponse, error) {
 	log := logger.WithContext(ctx, s.log)
 
-	// Validate content type
-	validTypes := map[string]bool{
-		"image/jpeg": true,
-		"image/png":  true,
-		"image/webp": true,
-		"image/gif":  true,
-	}
-	normalizedType := strings.ToLower(strings.TrimSpace(contentType))
-	if !validTypes[normalizedType] {
+	sniffed, ok := sniffImageType(data)
+	if !ok {
 		return nil, apperror.BadRequest("only jpeg, png, webp, and gif images are supported")
 	}
 
@@ -175,7 +171,7 @@ func (s *Service) UploadFile(ctx context.Context, filename string, contentType s
 	// If UploadThing is configured, attempt upload
 	token := strings.TrimSpace(s.cfg.UploadthingToken)
 	if token != "" {
-		res, err := s.uploadToUploadThing(ctx, token, filename, normalizedType, data)
+		res, err := s.uploadToUploadThing(ctx, token, filename, sniffed, data)
 		if err == nil {
 			return res, nil
 		}
@@ -183,7 +179,7 @@ func (s *Service) UploadFile(ctx context.Context, filename string, contentType s
 	}
 
 	// Fallback to local file storage
-	return s.saveLocalFile(filename, data)
+	return s.saveLocalFile(filename, sniffed, data)
 }
 
 type uploadThingFileReq struct {
@@ -317,18 +313,49 @@ func extractAPIKey(token string) string {
 	return token
 }
 
-func (s *Service) saveLocalFile(filename string, data []byte) (*UploadResponse, error) {
+// sniffImageType detects the content type from the uploaded bytes and
+// allowlists it. The second return is the canonical type for storage.
+func sniffImageType(data []byte) (string, bool) {
+	base, _, _ := strings.Cut(http.DetectContentType(data), ";")
+	switch strings.ToLower(strings.TrimSpace(base)) {
+	case "image/jpeg":
+		return "image/jpeg", true
+	case "image/png":
+		return "image/png", true
+	case "image/webp":
+		return "image/webp", true
+	case "image/gif":
+		return "image/gif", true
+	default:
+		return "", false
+	}
+}
+
+// storedExtension maps a sniffed image type to its file extension.
+func storedExtension(sniffedType string) string {
+	switch sniffedType {
+	case "image/jpeg":
+		return ".jpg"
+	case "image/png":
+		return ".png"
+	case "image/webp":
+		return ".webp"
+	case "image/gif":
+		return ".gif"
+	default:
+		return ".bin"
+	}
+}
+
+func (s *Service) saveLocalFile(filename string, sniffedType string, data []byte) (*UploadResponse, error) {
 	if err := os.MkdirAll(s.uploadsDir, 0o750); err != nil {
 		return nil, fmt.Errorf("create uploads dir: %w", err)
 	}
 
-	ext := filepath.Ext(filename)
+	// The stored name carries no client-controlled content: a random ID
+	// plus the extension derived from the sniffed type.
 	cleanName := filepath.Base(filename)
-	safeID := uuid.Must(uuid.NewV7()).String()
-	storedName := fmt.Sprintf("%s-%s", safeID, cleanName)
-	if ext == "" {
-		storedName += ".png"
-	}
+	storedName := fmt.Sprintf("%s%s", uuid.Must(uuid.NewV7()).String(), storedExtension(sniffedType))
 	targetPath := filepath.Join(s.uploadsDir, storedName)
 
 	if err := os.WriteFile(targetPath, data, 0o600); err != nil {

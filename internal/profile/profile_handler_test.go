@@ -134,6 +134,31 @@ func TestProfileHandler_UpdateProfile(t *testing.T) {
 	require.NoError(t, json.Unmarshal(recAuth.Body.Bytes(), &resp))
 	assert.Equal(t, "New Name", resp.Name)
 	assert.Equal(t, "Updated bio", resp.Bio)
+
+	// 3. Multibyte input within character limits passes HTTP validation:
+	// 280 emoji are 1120 bytes but 280 characters.
+	multiByteBio := strings.Repeat("🚀", 280)
+	multiBody := `{"bio":"` + multiByteBio + `"}`
+	reqMulti := httptest.NewRequest(http.MethodPatch, "/api/v1/profile", strings.NewReader(multiBody))
+	reqMulti.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	recMulti := httptest.NewRecorder()
+	cMulti := e.NewContext(reqMulti, recMulti)
+	cMulti.Set(auth.UserIDKey, u.ID)
+
+	require.NoError(t, h.UpdateProfile(cMulti))
+	assert.Equal(t, http.StatusOK, recMulti.Code)
+
+	// 4. Values that fail only after trimming are rejected with field errors.
+	trimBody := `{"name":"  a  "}`
+	reqTrim := httptest.NewRequest(http.MethodPatch, "/api/v1/profile", strings.NewReader(trimBody))
+	reqTrim.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	recTrim := httptest.NewRecorder()
+	cTrim := e.NewContext(reqTrim, recTrim)
+	cTrim.Set(auth.UserIDKey, u.ID)
+
+	require.NoError(t, h.UpdateProfile(cTrim))
+	assert.Equal(t, http.StatusBadRequest, recTrim.Code)
+	assert.Contains(t, recTrim.Body.String(), "name")
 }
 
 func TestProfileHandler_UploadFile(t *testing.T) {

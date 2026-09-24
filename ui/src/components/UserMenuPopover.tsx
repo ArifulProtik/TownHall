@@ -45,7 +45,7 @@ export function UserMenuPopover() {
     : user?.email
       ? `@${user.email.split('@')[0]}`
       : '@member';
-  const profileHandle = user?.username || 'joe';
+  const profileHandle = user?.username || 'me';
 
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>

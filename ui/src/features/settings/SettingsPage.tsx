@@ -517,13 +517,13 @@ function SecuritySettingsForm() {
         </CardHeader>
         <CardContent className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
           <div>
-            <p className="text-foreground text-sm font-medium">Log out all other sessions</p>
+            <p className="text-foreground text-sm font-medium">Log out all sessions</p>
             <p className="text-muted-foreground mt-0.5 text-xs">
-              Invalidates all refresh tokens and sessions except your current one.
+              Invalidates every refresh token, including the current session.
             </p>
             {logoutAllSuccess && (
               <p className="mt-2 text-xs font-medium text-emerald-500">
-                ✓ All other sessions have been logged out.
+                All sessions logged out, including this one.
               </p>
             )}
           </div>

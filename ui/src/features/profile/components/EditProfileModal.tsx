@@ -96,7 +96,10 @@ function EditProfileForm({ profile, onClose }: { profile: ProfileResponse; onClo
               <div className="absolute top-2.5 right-2.5">
                 <ImageUploadButton
                   label="Cover"
-                  onUploaded={(url) => setBannerUrl(url)}
+                  onUploaded={(url) => {
+                    setBannerPreviewError(false);
+                    setBannerUrl(url);
+                  }}
                   className="px-2.5 py-1 text-xs"
                 />
               </div>

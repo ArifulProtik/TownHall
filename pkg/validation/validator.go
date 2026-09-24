@@ -4,7 +4,9 @@ package validation
 import (
 	"errors"
 	"regexp"
+	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -29,6 +31,22 @@ func New() *CustomValidator {
 	v := validator.New()
 	_ = v.RegisterValidation("alphanum_underscore", func(fl validator.FieldLevel) bool {
 		return alphanumUnderscoreRegex.MatchString(fl.Field().String())
+	})
+	// minrunes/maxrunes count characters, not bytes: validator's stock
+	// min/max use byte length and reject valid multibyte input.
+	_ = v.RegisterValidation("minrunes", func(fl validator.FieldLevel) bool {
+		n, err := strconv.Atoi(fl.Param())
+		if err != nil {
+			return false
+		}
+		return utf8.RuneCountInString(fl.Field().String()) >= n
+	})
+	_ = v.RegisterValidation("maxrunes", func(fl validator.FieldLevel) bool {
+		n, err := strconv.Atoi(fl.Param())
+		if err != nil {
+			return false
+		}
+		return utf8.RuneCountInString(fl.Field().String()) <= n
 	})
 	return &CustomValidator{V: v}
 }

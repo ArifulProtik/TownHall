@@ -221,14 +221,14 @@ export function ProfileHeader({
             </div>
 
             <div className="flex flex-wrap items-center gap-x-4 text-base">
-              <span>
-                <strong className="text-foreground font-bold">{profile.following_count || 142}</strong>{' '}
-                <span className="text-muted-foreground">Following</span>
-              </span>
-              <span>
-                <strong className="text-foreground font-bold">{profile.followers_count || 489}</strong>{' '}
-                <span className="text-muted-foreground">Followers</span>
-              </span>
+                <span>
+                  <strong className="text-foreground font-bold">{profile.following_count ?? 0}</strong>{' '}
+                  <span className="text-muted-foreground">Following</span>
+                </span>
+                <span>
+                  <strong className="text-foreground font-bold">{profile.followers_count ?? 0}</strong>{' '}
+                  <span className="text-muted-foreground">Followers</span>
+                </span>
             </div>
           </div>
         </div>

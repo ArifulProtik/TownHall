@@ -344,5 +344,12 @@ func (s *Service) ChangePassword(ctx context.Context, userID, currentPassword, n
 		log.Error("change password: update failed", slog.Any("error", err))
 		return apperror.Internal()
 	}
+
+	// A password change must invalidate existing sessions: revoke every
+	// refresh token, including tokens minted before the change.
+	if err := s.LogoutAll(ctx, userID); err != nil {
+		log.Error("change password: revoke sessions failed", slog.Any("error", err))
+		return apperror.Internal()
+	}
 	return nil
 }

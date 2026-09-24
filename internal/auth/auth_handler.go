@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"ArifulProtik/TownHall/pkg/apperror"
 	"ArifulProtik/TownHall/pkg/logger"
 	"ArifulProtik/TownHall/pkg/response"
 	"ArifulProtik/TownHall/pkg/validation"
@@ -77,17 +76,7 @@ func (h *Handler) SignupEmail(c *echo.Context) error {
 	ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
 	u, err := h.svc.SignupEmail(ctx, req)
 	if err != nil {
-		var app *apperror.AppError
-		if errors.As(err, &app) {
-			if app.Status >= 500 {
-				log.Error("signup: service error", slog.Any("error", err))
-			} else {
-				log.Warn("signup: rejected", slog.Int("status", app.Status), slog.String("code", app.Code))
-			}
-			return c.JSON(app.Status, response.Map{"error": app.Message, "code": app.Code})
-		}
-		log.Error("signup: unexpected error", slog.Any("error", err))
-		return c.JSON(http.StatusInternalServerError, response.Map{"error": "internal server error"})
+		return response.Error(c, log, err, "signup")
 	}
 	return c.JSON(http.StatusCreated, ToUserResponse(u))
 }
@@ -124,17 +113,7 @@ func (h *Handler) Login(c *echo.Context) error {
 	ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
 	pair, err := h.svc.Login(ctx, req)
 	if err != nil {
-		var app *apperror.AppError
-		if errors.As(err, &app) {
-			if app.Status >= 500 {
-				log.Error("login: service error", slog.Any("error", err))
-			} else {
-				log.Warn("login: rejected", slog.Int("status", app.Status), slog.String("code", app.Code))
-			}
-			return c.JSON(app.Status, response.Map{"error": app.Message, "code": app.Code})
-		}
-		log.Error("login: unexpected error", slog.Any("error", err))
-		return c.JSON(http.StatusInternalServerError, response.Map{"error": "internal server error"})
+		return response.Error(c, log, err, "login")
 	}
 	setRefreshCookie(c, h.svc.GetAppEnv() == "production", pair.RefreshRaw, pair.RefreshExp)
 	return c.JSON(http.StatusOK, TokenResponse{
@@ -156,17 +135,7 @@ func (h *Handler) Refresh(c *echo.Context) error {
 	ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
 	pair, err := h.svc.Refresh(ctx, ck.Value)
 	if err != nil {
-		var app *apperror.AppError
-		if errors.As(err, &app) {
-			if app.Status >= 500 {
-				log.Error("refresh: service error", slog.Any("error", err))
-			} else {
-				log.Warn("refresh: rejected", slog.Int("status", app.Status), slog.String("code", app.Code))
-			}
-			return c.JSON(app.Status, response.Map{"error": app.Message, "code": app.Code})
-		}
-		log.Error("refresh: unexpected error", slog.Any("error", err))
-		return c.JSON(http.StatusInternalServerError, response.Map{"error": "internal server error"})
+		return response.Error(c, log, err, "refresh")
 	}
 	setRefreshCookie(c, h.svc.GetAppEnv() == "production", pair.RefreshRaw, pair.RefreshExp)
 	return c.JSON(http.StatusOK, TokenResponse{
@@ -183,13 +152,7 @@ func (h *Handler) Logout(c *echo.Context) error {
 	if ck, err := c.Request().Cookie(RefreshCookieName); err == nil && ck != nil && ck.Value != "" {
 		ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
 		if err := h.svc.Logout(ctx, ck.Value); err != nil {
-			var app *apperror.AppError
-			if errors.As(err, &app) {
-				log.Error("logout: service error", slog.Any("error", err))
-				return c.JSON(app.Status, response.Map{"error": app.Message, "code": app.Code})
-			}
-			log.Error("logout: unexpected error", slog.Any("error", err))
-			return c.JSON(http.StatusInternalServerError, response.Map{"error": "internal server error"})
+			return response.Error(c, log, err, "logout")
 		}
 	}
 	clearRefreshCookie(c, h.svc.GetAppEnv() == "production")
@@ -208,13 +171,7 @@ func (h *Handler) LogoutAll(c *echo.Context) error {
 	}
 	ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
 	if err := h.svc.LogoutAll(ctx, uid); err != nil {
-		var app *apperror.AppError
-		if errors.As(err, &app) {
-			log.Error("logout-all: service error", slog.Any("error", err))
-			return c.JSON(app.Status, response.Map{"error": app.Message, "code": app.Code})
-		}
-		log.Error("logout-all: unexpected error", slog.Any("error", err))
-		return c.JSON(http.StatusInternalServerError, response.Map{"error": "internal server error"})
+		return response.Error(c, log, err, "logout-all")
 	}
 	clearRefreshCookie(c, h.svc.GetAppEnv() == "production")
 	return c.JSON(http.StatusOK, response.Map{"status": "ok"})
@@ -233,17 +190,7 @@ func (h *Handler) Me(c *echo.Context) error {
 	ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
 	u, err := h.svc.GetUser(ctx, uid)
 	if err != nil {
-		var app *apperror.AppError
-		if errors.As(err, &app) {
-			if app.Status >= 500 {
-				log.Error("me: service error", slog.Any("error", err))
-			} else {
-				log.Warn("me: rejected", slog.Int("status", app.Status), slog.String("code", app.Code))
-			}
-			return c.JSON(app.Status, response.Map{"error": app.Message, "code": app.Code})
-		}
-		log.Error("me: unexpected error", slog.Any("error", err))
-		return c.JSON(http.StatusInternalServerError, response.Map{"error": "internal server error"})
+		return response.Error(c, log, err, "me")
 	}
 	return c.JSON(http.StatusOK, ToUserResponse(u))
 }
@@ -306,17 +253,7 @@ func (h *Handler) SetupUsername(c *echo.Context) error {
 	ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
 	u, err := h.svc.SetupUsername(ctx, uid, req.Username)
 	if err != nil {
-		var app *apperror.AppError
-		if errors.As(err, &app) {
-			if app.Status >= 500 {
-				log.Error("setup-username: service error", slog.Any("error", err))
-			} else {
-				log.Warn("setup-username: rejected", slog.Int("status", app.Status), slog.String("code", app.Code))
-			}
-			return c.JSON(app.Status, response.Map{"error": app.Message, "code": app.Code})
-		}
-		log.Error("setup-username: unexpected error", slog.Any("error", err))
-		return c.JSON(http.StatusInternalServerError, response.Map{"error": "internal server error"})
+		return response.Error(c, log, err, "setup-username")
 	}
 
 	return c.JSON(http.StatusOK, ToUserResponse(u))
@@ -350,17 +287,7 @@ func (h *Handler) ChangePassword(c *echo.Context) error {
 
 	ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
 	if err := h.svc.ChangePassword(ctx, uid, req.CurrentPassword, req.NewPassword); err != nil {
-		var app *apperror.AppError
-		if errors.As(err, &app) {
-			if app.Status >= 500 {
-				log.Error("change-password: service error", slog.Any("error", err))
-			} else {
-				log.Warn("change-password: rejected", slog.Int("status", app.Status), slog.String("code", app.Code))
-			}
-			return c.JSON(app.Status, response.Map{"error": app.Message, "code": app.Code})
-		}
-		log.Error("change-password: unexpected error", slog.Any("error", err))
-		return c.JSON(http.StatusInternalServerError, response.Map{"error": "internal server error"})
+		return response.Error(c, log, err, "change-password")
 	}
 
 	return c.JSON(http.StatusOK, response.Map{"status": "ok"})

@@ -37,7 +37,13 @@ build: ## Build binary to ./tmp/main
 	@go build -o $(BIN) $(MAIN_PKG)
 	@echo "$(GREEN)built $(BIN)$(RESET)"
 
-GO_PKGS = $(shell go list ./... | grep -v /ui)
+# List Go packages once; fail fast if `go list` errors instead of letting
+# the grep pipe below mask the failure with an empty list.
+_GO_PKGS_RAW := $(shell go list ./...)
+ifeq ($(_GO_PKGS_RAW),)
+$(error go list ./... failed: cannot determine Go packages)
+endif
+GO_PKGS = $(shell printf '%s\n' $(_GO_PKGS_RAW) | grep -v /ui)
 
 .PHONY: test
 test: ## Run all tests

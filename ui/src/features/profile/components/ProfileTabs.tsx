@@ -304,7 +304,7 @@ export function ProfileTabs({ profile, activeTab, onEditProfile, onSelectTab }: 
             <div className="flex items-baseline gap-1.5">
               <h2 className="text-foreground text-xl font-extrabold tracking-tight">Friends</h2>
               <p className="text-muted-foreground text-xs">
-                {profile.followers_count || 489} friends
+                {profile.followers_count ?? 0} friends
               </p>
             </div>
             <div className="relative w-full sm:w-48">

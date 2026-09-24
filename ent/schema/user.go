@@ -1,7 +1,12 @@
 package schema
 
 import (
+	"errors"
+	"strconv"
+	"unicode/utf8"
+
 	"entgo.io/ent"
+	"entgo.io/ent/dialect"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 )
@@ -18,6 +23,24 @@ func (User) Mixin() []ent.Mixin {
 	}
 }
 
+// runeLimit returns a validator counting characters, not bytes, so values
+// meeting the character limit are accepted while overlong values are
+// rejected before save.
+func runeLimit(n int, what string) func(string) error {
+	return func(s string) error {
+		if utf8.RuneCountInString(s) > n {
+			return errors.New(what + " must not exceed " + strconv.Itoa(n) + " characters")
+		}
+		return nil
+	}
+}
+
+// varchar preserves the Postgres column size that MaxLen used to declare,
+// without its byte-counting validator.
+func varchar(n int) map[string]string {
+	return map[string]string{dialect.Postgres: "varchar(" + strconv.Itoa(n) + ")"}
+}
+
 // Fields of the User.
 func (User) Fields() []ent.Field {
 	return []ent.Field{
@@ -27,11 +50,11 @@ func (User) Fields() []ent.Field {
 		field.String("username").Optional().Unique(),
 		field.Enum("provider").Values("google", "github", "email").Default("google"),
 		field.Bool("email_verified").Default(false),
-		field.String("bio").Optional().MaxLen(280),
-		field.String("avatar_url").Optional().MaxLen(1000),
-		field.String("banner_url").Optional().MaxLen(1000),
-		field.String("location").Optional().MaxLen(100),
-		field.String("website").Optional().MaxLen(200),
+		field.String("bio").Optional().SchemaType(varchar(280)).Validate(runeLimit(280, "bio")),
+		field.String("avatar_url").Optional().SchemaType(varchar(1000)).Validate(runeLimit(1000, "avatar url")),
+		field.String("banner_url").Optional().SchemaType(varchar(1000)).Validate(runeLimit(1000, "banner url")),
+		field.String("location").Optional().SchemaType(varchar(100)).Validate(runeLimit(100, "location")),
+		field.String("website").Optional().SchemaType(varchar(200)).Validate(runeLimit(200, "website")),
 	}
 }
 
