@@ -13,6 +13,7 @@ import (
 	"ArifulProtik/TownHall/ent"
 	"ArifulProtik/TownHall/internal/auth"
 	"ArifulProtik/TownHall/internal/config"
+	"ArifulProtik/TownHall/internal/eventbus"
 	"ArifulProtik/TownHall/internal/filestore"
 	"ArifulProtik/TownHall/internal/notification"
 	"ArifulProtik/TownHall/internal/platform"
@@ -25,32 +26,6 @@ import (
 
 	"github.com/labstack/echo/v5"
 )
-
-// followNotifier adapts notification.Service to social.FollowNotifier
-// without a domain->domain import in social. Only main knows both.
-type followNotifier struct{ svc *notification.Service }
-
-func (n *followNotifier) NotifyFollow(ctx context.Context, recipientID, actorID, actorName, actorUsername, avatarURL, entityID string) error {
-	return n.notify(ctx, recipientID, actorID, actorName, actorUsername, avatarURL, entityID, false)
-}
-
-func (n *followNotifier) NotifyFriend(ctx context.Context, recipientID, actorID, actorName, actorUsername, avatarURL, entityID string) error {
-	return n.notify(ctx, recipientID, actorID, actorName, actorUsername, avatarURL, entityID, true)
-}
-
-func (n *followNotifier) notify(ctx context.Context, recipientID, actorID, actorName, actorUsername, avatarURL, entityID string, isFriend bool) error {
-	var username *string
-	if actorUsername != "" {
-		username = &actorUsername
-	}
-	actor := notification.Actor{ID: actorID, Name: actorName, Username: username, AvatarURL: avatarURL}
-	if isFriend {
-		_, err := n.svc.NotifyFriend(ctx, recipientID, actor, entityID)
-		return err
-	}
-	_, err := n.svc.NotifyFollow(ctx, recipientID, actor, entityID)
-	return err
-}
 
 func main() {
 	if err := run(); err != nil {
@@ -109,7 +84,12 @@ func run() error {
 	notifSvc := notification.NewService(entClient, notifBroker)
 	notifHandler := notification.NewHandler(notifSvc)
 
-	socialSvc := social.NewService(entClient, &followNotifier{svc: notifSvc})
+	// The bus carries domain events; notification subscribes. Adding a
+	// future event type touches neither this wiring nor publishers.
+	bus := eventbus.New()
+	notification.Register(bus, notifSvc)
+
+	socialSvc := social.NewService(entClient, bus)
 	socialHandler := social.NewHandler(socialSvc, cfg.JWTSecret)
 
 	e.Static("/uploads", "./uploads")

@@ -8,6 +8,7 @@ import (
 	"ArifulProtik/TownHall/ent"
 	"ArifulProtik/TownHall/ent/follow"
 	"ArifulProtik/TownHall/ent/user"
+	"ArifulProtik/TownHall/internal/eventbus"
 	"ArifulProtik/TownHall/internal/userlookup"
 	"ArifulProtik/TownHall/pkg/apperror"
 )
@@ -19,20 +20,14 @@ const (
 
 // Service owns follow edges. Friendship is derived (mutual edges), never stored.
 type Service struct {
-	db       *ent.Client
-	notifier FollowNotifier
+	db  *ent.Client
+	bus eventbus.Publisher
 }
 
-// FollowNotifier is the narrow event outlet social publishes to. Defined
-// here (primitives only) so social never imports another domain;
-// notification.Service is adapted to it in main. Nil means no fan-out.
-type FollowNotifier interface {
-	NotifyFollow(ctx context.Context, recipientID, actorID, actorName, actorUsername, avatarURL, entityID string) error
-	NotifyFriend(ctx context.Context, recipientID, actorID, actorName, actorUsername, avatarURL, entityID string) error
-}
-
-func NewService(db *ent.Client, notifier FollowNotifier) *Service {
-	return &Service{db: db, notifier: notifier}
+// Social publishes domain events to the bus; it never knows who
+// subscribes (notification does). Nil bus means silent.
+func NewService(db *ent.Client, bus eventbus.Publisher) *Service {
+	return &Service{db: db, bus: bus}
 }
 
 // resolveTarget maps handle -> user via the shared lookup.
@@ -95,14 +90,15 @@ func (s *Service) Follow(ctx context.Context, actorID, target string) (*StatusRe
 		}
 		return nil, apperror.Internal()
 	}
-	if s.notifier != nil {
+	if s.bus != nil {
 		actor, aerr := s.db.User.Get(ctx, actorID)
 		if aerr == nil {
-			notify := s.notifier.NotifyFollow
+			evt := eventbus.Actor{ID: actor.ID, Name: actor.Name, Username: actor.Username, AvatarURL: actor.AvatarURL}
 			if s.edgeExists(ctx, t.ID, actorID) {
-				notify = s.notifier.NotifyFriend
+				_ = s.bus.Publish(ctx, eventbus.FriendshipFormed{RecipientID: t.ID, Actor: evt, EntityID: edge.ID})
+			} else {
+				_ = s.bus.Publish(ctx, eventbus.FollowCreated{RecipientID: t.ID, Actor: evt, EntityID: edge.ID})
 			}
-			_ = notify(ctx, t.ID, actor.ID, actor.Name, actor.Username, actor.AvatarURL, edge.ID)
 		}
 	}
 	return s.statusFor(ctx, actorID, t), nil

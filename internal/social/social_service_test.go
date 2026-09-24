@@ -8,6 +8,7 @@ import (
 	"ArifulProtik/TownHall/ent"
 	"ArifulProtik/TownHall/ent/enttest"
 	"ArifulProtik/TownHall/ent/user"
+	"ArifulProtik/TownHall/internal/eventbus"
 	"ArifulProtik/TownHall/pkg/apperror"
 
 	"github.com/stretchr/testify/assert"
@@ -247,26 +248,26 @@ func TestFollow_ListFriendsLosesNothingAfterOneSided(t *testing.T) {
 	assert.False(t, p2.HasMore)
 }
 
-type recordingNotifier struct {
-	follows []string
-	friends []string
+type recordingBus struct {
+	follows []eventbus.FollowCreated
+	friends []eventbus.FriendshipFormed
 }
 
-func (f *recordingNotifier) NotifyFollow(_ context.Context, recipientID, _, _, _, _, _ string) error {
-	f.follows = append(f.follows, recipientID)
-	return nil
-}
-
-func (f *recordingNotifier) NotifyFriend(_ context.Context, recipientID, _, _, _, _, _ string) error {
-	f.friends = append(f.friends, recipientID)
+func (f *recordingBus) Publish(_ context.Context, evt any) error {
+	switch e := evt.(type) {
+	case eventbus.FollowCreated:
+		f.follows = append(f.follows, e)
+	case eventbus.FriendshipFormed:
+		f.friends = append(f.friends, e)
+	}
 	return nil
 }
 
 func TestFollow_FollowBackNotifiesFriend(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:socialfriend?mode=memory&cache=shared&_fk=1")
 	t.Cleanup(func() { _ = client.Close() })
-	notifier := &recordingNotifier{}
-	svc := NewService(client, notifier)
+	bus := &recordingBus{}
+	svc := NewService(client, bus)
 	ctx := context.Background()
 
 	alice := createSocialUser(t, client, "alice", "alice@example.com")
@@ -274,11 +275,13 @@ func TestFollow_FollowBackNotifiesFriend(t *testing.T) {
 
 	_, err := svc.Follow(ctx, alice.ID, bob.Username)
 	require.NoError(t, err)
-	assert.Equal(t, []string{bob.ID}, notifier.follows)
-	assert.Empty(t, notifier.friends)
+	require.Len(t, bus.follows, 1)
+	assert.Equal(t, bob.ID, bus.follows[0].RecipientID)
+	assert.Empty(t, bus.friends)
 
 	_, err = svc.Follow(ctx, bob.ID, alice.Username)
 	require.NoError(t, err)
-	assert.Equal(t, []string{alice.ID}, notifier.friends)
-	assert.Len(t, notifier.follows, 1)
+	require.Len(t, bus.friends, 1)
+	assert.Equal(t, alice.ID, bus.friends[0].RecipientID)
+	assert.Len(t, bus.follows, 1)
 }
