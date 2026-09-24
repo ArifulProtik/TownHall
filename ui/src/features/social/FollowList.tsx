@@ -73,8 +73,14 @@ export function FollowList({ handle, tab, filter, onNavigate, variant = 'rows' }
   // Pages after the first accumulate here, appended in the Load-more handler
   // (event, not effect) so no setState-in-effect is needed.
   const [extra, setExtra] = React.useState<FollowListUser[]>([]);
-  const [nextCursor, setNextCursor] = React.useState<string | undefined>(undefined);
-  const [hasMoreExtra, setHasMoreExtra] = React.useState(false);
+  // Whether an extra page has loaded is tracked independently of extra.length:
+  // a page can add no users (all duplicates, or a sparse friends scan) while
+  // still advancing the cursor. After the first extra-page response these
+  // values always win over the first page's.
+  const [extraMeta, setExtraMeta] = React.useState<{
+    cursor?: string;
+    hasMore: boolean;
+  } | null>(null);
   const [loadingMore, setLoadingMore] = React.useState(false);
   const [loadError, setLoadError] = React.useState<string | null>(null);
 
@@ -88,8 +94,11 @@ export function FollowList({ handle, tab, filter, onNavigate, variant = 'rows' }
           (u.username ?? '').toLowerCase().includes(q),
       )
     : allUsers;
-  const hasMore = extra.length > 0 ? hasMoreExtra : (firstPage.data?.has_more ?? false);
-  const cursor = extra.length > 0 ? nextCursor : firstPage.data?.next_cursor;
+  const hasMore = extraMeta ? extraMeta.hasMore : (firstPage.data?.has_more ?? false);
+  const cursor = extraMeta ? extraMeta.cursor : firstPage.data?.next_cursor;
+  // No cursor or explicit end: nothing left to load, even if an older
+  // response claimed more.
+  const canLoadMore = hasMore && !!cursor;
 
   async function handleLoadMore() {
     if (!cursor || loadingMore) return;
@@ -101,8 +110,7 @@ export function FollowList({ handle, tab, filter, onNavigate, variant = 'rows' }
         const seen = new Set([...firstUsers, ...prev].map((u) => u.id));
         return [...prev, ...res.users.filter((u) => !seen.has(u.id))];
       });
-      setNextCursor(res.next_cursor);
-      setHasMoreExtra(res.has_more);
+      setExtraMeta({ cursor: res.next_cursor, hasMore: res.has_more });
     } catch {
       setLoadError('Couldn\u2019t load more. Please try again.');
     } finally {
@@ -164,7 +172,7 @@ export function FollowList({ handle, tab, filter, onNavigate, variant = 'rows' }
             {loadError}
           </p>
         )}
-        {hasMore && !q && (
+        {canLoadMore && !q && (
           <div className="flex justify-center pt-2">
             <Button
               variant="outline"
@@ -203,7 +211,7 @@ export function FollowList({ handle, tab, filter, onNavigate, variant = 'rows' }
           {loadError}
         </p>
       )}
-      {hasMore && !q && (
+      {canLoadMore && !q && (
         <div className="flex justify-center pt-2">
           <Button
             variant="outline"

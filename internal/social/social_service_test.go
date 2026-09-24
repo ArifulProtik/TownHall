@@ -185,3 +185,64 @@ func TestFollow_CascadeOnUserDelete(t *testing.T) {
 	assert.Equal(t, 0, svc.FollowersCount(ctx, b.ID))
 	assert.Equal(t, 0, svc.FollowingCount(ctx, a.ID))
 }
+
+func followBoth(t *testing.T, svc *Service, ctx context.Context, a, b *ent.User) {
+	t.Helper()
+	_, err := svc.Follow(ctx, a.ID, b.ID)
+	require.NoError(t, err)
+	_, err = svc.Follow(ctx, b.ID, a.ID)
+	require.NoError(t, err)
+}
+
+func TestFollow_ListFriendsPaginatesAcrossPages(t *testing.T) {
+	svc := newTestService(t)
+	ctx := context.Background()
+	target := createSocialUser(t, svc.db, "page-target", "page-target@ex.com")
+	m1 := createSocialUser(t, svc.db, "page-m1", "page-m1@ex.com")
+	m2 := createSocialUser(t, svc.db, "page-m2", "page-m2@ex.com")
+	m3 := createSocialUser(t, svc.db, "page-m3", "page-m3@ex.com")
+	followBoth(t, svc, ctx, target, m1)
+	followBoth(t, svc, ctx, target, m2)
+	followBoth(t, svc, ctx, target, m3)
+
+	p1, err := svc.ListFriends(ctx, target.ID, 2, "")
+	require.NoError(t, err)
+	require.Len(t, p1.Users, 2)
+	assert.True(t, p1.HasMore)
+	require.NotEmpty(t, p1.NextCursor)
+
+	p2, err := svc.ListFriends(ctx, target.ID, 2, p1.NextCursor)
+	require.NoError(t, err)
+	require.Len(t, p2.Users, 1)
+	assert.Equal(t, m3.ID, p2.Users[0].ID)
+	assert.False(t, p2.HasMore)
+}
+
+func TestFollow_ListFriendsLosesNothingAfterOneSided(t *testing.T) {
+	svc := newTestService(t)
+	ctx := context.Background()
+	target := createSocialUser(t, svc.db, "skip-target", "skip-target@ex.com")
+	// One-sided follow first so the first edge page is sparse.
+	s1 := createSocialUser(t, svc.db, "skip-s1", "skip-s1@ex.com")
+	_, err := svc.Follow(ctx, target.ID, s1.ID)
+	require.NoError(t, err)
+	m1 := createSocialUser(t, svc.db, "skip-m1", "skip-m1@ex.com")
+	m2 := createSocialUser(t, svc.db, "skip-m2", "skip-m2@ex.com")
+	m3 := createSocialUser(t, svc.db, "skip-m3", "skip-m3@ex.com")
+	followBoth(t, svc, ctx, target, m1)
+	followBoth(t, svc, ctx, target, m2)
+	followBoth(t, svc, ctx, target, m3)
+
+	p1, err := svc.ListFriends(ctx, target.ID, 2, "")
+	require.NoError(t, err)
+	require.Len(t, p1.Users, 2)
+	assert.Equal(t, m1.ID, p1.Users[0].ID)
+	assert.Equal(t, m2.ID, p1.Users[1].ID)
+	assert.True(t, p1.HasMore)
+
+	p2, err := svc.ListFriends(ctx, target.ID, 2, p1.NextCursor)
+	require.NoError(t, err)
+	require.Len(t, p2.Users, 1)
+	assert.Equal(t, m3.ID, p2.Users[0].ID)
+	assert.False(t, p2.HasMore)
+}

@@ -123,16 +123,11 @@ func (s *Service) Unfollow(ctx context.Context, actorID, target string) (*Status
 	if t.ID == actorID {
 		return nil, apperror.BadRequest("cannot unfollow yourself")
 	}
-	id, err := s.db.Follow.Query().
+	// Single delete: zero affected rows is the idempotent success path, so
+	// no pre-query is needed.
+	if _, err := s.db.Follow.Delete().
 		Where(follow.FollowerID(actorID), follow.FollowingID(t.ID)).
-		OnlyID(ctx)
-	if err != nil {
-		if ent.IsNotFound(err) {
-			return s.statusFor(ctx, actorID, t), nil
-		}
-		return nil, apperror.Internal()
-	}
-	if err := s.db.Follow.DeleteOneID(id).Exec(ctx); err != nil {
+		Exec(ctx); err != nil {
 		return nil, apperror.Internal()
 	}
 	return s.statusFor(ctx, actorID, t), nil
@@ -311,9 +306,11 @@ func (s *Service) ListFriends(ctx context.Context, target string, limit int, cur
 	}
 	limit = clampLimit(limit)
 	// Scan following-edge pages (bounded), keeping mutuals in edge order.
-	// hasMore means "more edges remain unexamined", never a promise that more
-	// mutuals exist: filtered keyset pagination can legitimately end with a
-	// sparse page.
+	// hasMore means "more results may exist": the cursor advances only through
+	// examined edges, so a page that fills the limit while leaving page edges
+	// unexamined still reports more — even when the backend has no further
+	// page. A page can legitimately hold fewer mutuals than the limit
+	// (sparse scan); callers keep paging while hasMore is true.
 	var mutualIDs []string
 	next := cursor
 	moreEdges := false
@@ -324,10 +321,6 @@ func (s *Service) ListFriends(ctx context.Context, target string, limit int, cur
 		if err != nil {
 			return nil, err
 		}
-		if len(edges) > 0 {
-			next = edgesNextCursor(edges)
-		}
-		moreEdges = more
 		candidates := make([]string, 0, len(edges))
 		for _, e := range edges {
 			candidates = append(candidates, e.FollowingID)
@@ -345,15 +338,21 @@ func (s *Service) ListFriends(ctx context.Context, target string, limit int, cur
 				mutualSet[id] = true
 			}
 		}
-		for _, id := range candidates {
-			if mutualSet[id] {
-				mutualIDs = append(mutualIDs, id)
-				if len(mutualIDs) == limit {
-					break
-				}
+		consumed := 0
+		for _, e := range edges {
+			if len(mutualIDs) == limit {
+				break
+			}
+			consumed++
+			if mutualSet[e.FollowingID] {
+				mutualIDs = append(mutualIDs, e.FollowingID)
 			}
 		}
-		if !more {
+		if consumed > 0 {
+			next = encodeCursor(edges[consumed-1].ID)
+		}
+		moreEdges = consumed < len(edges) || more
+		if !moreEdges {
 			break
 		}
 	}
