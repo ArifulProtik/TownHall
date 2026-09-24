@@ -1,3 +1,6 @@
+import { Link } from 'react-router';
+import { resolveMediaUrl } from '@/lib/media';
+import { useGetFriendsQuery } from '@/features/social/socialApi';
 import type { ProfileResponse } from '@/features/profile/profileApi';
 
 interface ProfileIntroCardProps {
@@ -9,14 +12,10 @@ export function ProfileIntroCard({
   profile,
   onNavigateTab,
 }: ProfileIntroCardProps) {
-  const friends = [
-    { name: 'Sarah Chen', mutual: '18 mutual', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80' },
-    { name: 'Marcus V.', mutual: '12 mutual', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80' },
-    { name: 'Elena R.', mutual: '34 mutual', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80' },
-    { name: 'Alex Rivera', mutual: '9 mutual', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80' },
-    { name: 'Liam D.', mutual: '22 mutual', avatar: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=200&q=80' },
-    { name: 'Maya Patel', mutual: '15 mutual', avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=200&q=80' },
-  ];
+  const handle = profile.username || profile.id;
+  const { data } = useGetFriendsQuery({ handle, limit: 4 });
+  const friends = data?.users ?? [];
+  const moreCount = data?.has_more ? '+' : '';
 
   const photoPreviews = [
     'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80',
@@ -64,7 +63,7 @@ export function ProfileIntroCard({
         <div className="flex items-baseline justify-between mb-2">
           <div className="flex items-baseline gap-1.5">
             <h3 className="text-xl font-extrabold text-foreground">Friends</h3>
-            <p className="text-xs text-muted-foreground">{profile.followers_count ?? 0}</p>
+            <p className="text-xs text-muted-foreground">{friends.length}{moreCount}</p>
           </div>
           <button
             type="button"
@@ -75,26 +74,35 @@ export function ProfileIntroCard({
           </button>
         </div>
         <div className="space-y-0.5">
-          {friends.slice(0, 4).map((f, i) => (
-            <div
-              key={i}
-              onClick={() => onNavigateTab('community')}
+          {friends.map((f) => (
+            <Link
+              key={f.id}
+              to={`/u/${encodeURIComponent(f.username || f.id)}`}
               className="group flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-1.5 transition-colors hover:bg-muted/60"
             >
               <div className="size-10 shrink-0 overflow-hidden rounded-full bg-muted">
-                <img
-                  src={f.avatar}
-                  alt={f.name}
-                  loading="lazy"
-                  className="size-full object-cover"
-                />
+                {f.avatar_url ? (
+                  <img
+                    src={resolveMediaUrl(f.avatar_url)}
+                    alt={f.name}
+                    loading="lazy"
+                    className="size-full object-cover"
+                  />
+                ) : (
+                  <span className="flex size-full items-center justify-center text-xs font-bold text-muted-foreground">
+                    {f.name ? f.name.slice(0, 2).toUpperCase() : 'TH'}
+                  </span>
+                )}
               </div>
               <div className="min-w-0">
                 <p className="truncate text-base font-bold leading-tight text-foreground group-hover:underline">{f.name}</p>
-                <p className="text-xs leading-tight text-muted-foreground">{f.mutual}</p>
+                <p className="text-xs leading-tight text-muted-foreground">@{f.username || 'member'}</p>
               </div>
-            </div>
+            </Link>
           ))}
+          {friends.length === 0 && (
+            <p className="py-2 text-sm text-muted-foreground">No friends yet.</p>
+          )}
         </div>
       </section>
     </div>

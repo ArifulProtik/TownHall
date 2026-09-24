@@ -13,6 +13,7 @@ export interface FollowListUser {
   id: string;
   name: string;
   username?: string | null;
+  avatar_url?: string;
 }
 
 export interface FollowListResponse {

@@ -295,9 +295,7 @@ function CommunityTab({ handle }: { handle: string }) {
         </div>
       </div>
 
-      <div className="border-border bg-card rounded-2xl border px-4 py-1">
-        <FollowList handle={handle} tab="friends" filter={search} />
-      </div>
+      <FollowList handle={handle} tab="friends" filter={search} variant="cards" />
     </div>
   );
 }
