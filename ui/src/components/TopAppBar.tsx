@@ -1,7 +1,5 @@
 import type { ReactNode } from 'react';
 import { useLocation } from 'react-router';
-import { Bell } from '@phosphor-icons/react';
-import { Button } from '@/components/ui/button';
 
 interface TopAppBarProps {
   title?: string;
@@ -49,21 +47,6 @@ export function TopAppBar({ title, subtitle, actions }: TopAppBarProps) {
 
       <div className="flex items-center gap-1.5">
         {actions}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label="Notifications"
-          className="relative size-8 text-muted-foreground hover:text-foreground"
-        >
-          <Bell className="size-4.5" />
-          {/* Subtle unread notification indicator dot */}
-          <span
-            data-slot="notification-dot"
-            aria-hidden="true"
-            className="absolute top-1.5 right-1.5 size-2 rounded-full bg-primary ring-2 ring-background"
-          />
-        </Button>
       </div>
     </header>
   );
