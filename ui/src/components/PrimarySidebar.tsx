@@ -1,5 +1,6 @@
 import { House, ChatCircleDots, Plus } from '@phosphor-icons/react';
 import { SidebarRailItem } from '@/components/SidebarRailItem';
+import { NotificationBell } from '@/components/NotificationBell';
 import { UserMenuPopover } from '@/components/UserMenuPopover';
 import { mockSpaces } from '@/features/spaces/mocks';
 
@@ -48,8 +49,9 @@ export function PrimarySidebar() {
         />
       </div>
 
-      {/* Bottom Pinned: User Avatar & Popover */}
-      <div className="mt-auto flex w-full flex-col items-center pt-2">
+      {/* Bottom Pinned: Notifications & User Avatar */}
+      <div className="mt-auto flex w-full flex-col items-center gap-1 pt-2">
+        <NotificationBell />
         <UserMenuPopover />
       </div>
     </nav>
