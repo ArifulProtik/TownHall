@@ -101,7 +101,11 @@ func run() error {
 	profileSvc := profile.NewService(entClient, filestore.New(cfg.UploadthingToken, "./uploads"))
 	profileHandler := profile.NewHandler(profileSvc, cfg.JWTSecret)
 
-	notifBroker := notification.NewBroker(cfg.RedisURL)
+	notifBroker, err := notification.NewBroker(cfg.RedisURL)
+	if err != nil {
+		appLog.Error("notification broker failed", slog.Any("error", err))
+		return err
+	}
 	notifSvc := notification.NewService(entClient, notifBroker)
 	notifHandler := notification.NewHandler(notifSvc)
 

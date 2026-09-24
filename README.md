@@ -37,7 +37,8 @@ Prometheus + Alloy; needs Docker; stop `make dev` first — both want
 request rate, 5xx share, p95 latency, and app logs correlated by
 `request_id`. `make logs` follows the app container; `make down` stops
 everything. Compose Postgres is separate from your native one on
-`:5432`, which stays untouched.
+`:5432`, which stays untouched. Both stacks take `JWT_SECRET` from your
+`.env` (`make setup` creates it) and refuse to start without it.
 
 ## Docker dev (hot reload)
 
@@ -47,7 +48,8 @@ air on `:8080`, plus throwaway pg + redis on dev-only volumes. Run the
 frontend natively alongside it (`bun --cwd=ui run dev`, lighter than a
 container) — its `/api` proxy already points at `localhost:8080`.
 `make dev-docker-full` additionally dockerizes the web frontend
-(`--profile web`, heavier). `make dev-docker-logs` follows the api;
+(`--profile web`, heavier). `JWT_SECRET` resolves from `.env` here too.
+`make dev-docker-logs` follows the api;
 `make dev-docker-down` stops everything.
 
 ## On the roadmap

@@ -39,7 +39,7 @@ services:
       LOG_LEVEL: info
       AUTO_MIGRATE: "true" # local compose only: non-destructive schema create
       DATABASE_URL: postgres://postgres:postgres@db:5432/chat_platform?sslmode=disable
-      JWT_SECRET: dev-secret-change-me # local only — never reuse in shared envs
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in your shell or .env (make setup copies .env.example)} # local only — never reuse in shared envs
       JWT_ACCESS_TTL: 15m
       JWT_REFRESH_TTL: 720h
       REDIS_URL: redis://redis:6379

@@ -17,6 +17,7 @@ import (
 // ServiceAPI is what the handler needs. *Service satisfies it, tests mock it.
 type ServiceAPI interface {
 	List(ctx context.Context, userID string, limit int, cursor string) (*ListResponse, error)
+	ListSince(ctx context.Context, userID, lastID string, limit int) ([]Item, error)
 	UnreadCount(ctx context.Context, userID string) (int, error)
 	MarkRead(ctx context.Context, userID, id string) error
 	MarkAllRead(ctx context.Context, userID string) error
@@ -141,30 +142,24 @@ func (h *Handler) Stream(c *echo.Context) error {
 	if lastID == "" {
 		lastID = r.URL.Query().Get("lastEventId")
 	}
+	// Subscribe BEFORE replay: events published during the replay query
+	// land in the channel instead of falling in the gap. Anything the
+	// replay also returns is skipped in the live loop via replayedThrough
+	// (UUIDv7 ids sort as creation order, so string order is time order).
+	ch, unsub := h.svc.Subscribe(uid)
+	defer unsub()
+	replayedThrough := ""
 	if lastID != "" {
-		ctx := r.Context()
-		cursor := encodeCursor(lastID)
-		for {
-			page, err := h.svc.List(ctx, uid, maxListLimit, cursor)
-			if err != nil || len(page.Notifications) == 0 {
-				break
-			}
-			// List is newest-first for the bell; replay oldest-first so
-			// a reconnecting client sees missed events in order.
-			for i := len(page.Notifications) - 1; i >= 0; i-- {
-				item := page.Notifications[i]
+		items, err := h.svc.ListSince(r.Context(), uid, lastID, maxListLimit)
+		if err == nil {
+			for _, item := range items {
 				_ = writeSSE(w, item.ID, "notification", item)
 				flush()
+				replayedThrough = item.ID
 			}
-			if !page.HasMore {
-				break
-			}
-			cursor = page.NextCursor
 		}
 	}
 
-	ch, unsub := h.svc.Subscribe(uid)
-	defer unsub()
 	heartbeat := time.NewTicker(25 * time.Second)
 	defer heartbeat.Stop()
 	for {
@@ -174,6 +169,9 @@ func (h *Handler) Stream(c *echo.Context) error {
 		case e, ok := <-ch:
 			if !ok {
 				return nil
+			}
+			if replayedThrough != "" && e.ID <= replayedThrough {
+				continue
 			}
 			_ = writeSSE(w, e.ID, "notification", e)
 			flush()

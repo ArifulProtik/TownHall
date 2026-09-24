@@ -175,6 +175,32 @@ func (s *Service) List(ctx context.Context, userID string, limit int, cursor str
 	return resp, nil
 }
 
+// ListSince returns notifications newer than lastID, oldest first,
+// bounded by limit. SSE replay uses it: missed events resend in order.
+// UUIDv7 ids sort as creation order, so IDGT(lastID) is "everything
+// after", and ascending keeps the replay chronological.
+func (s *Service) ListSince(ctx context.Context, userID, lastID string, limit int) ([]Item, error) {
+	limit = clampLimit(limit)
+	rows, err := s.db.Notification.Query().
+		Where(notification.RecipientID(userID), notification.IDGT(lastID)).
+		Order(ent.Asc(notification.FieldID)).
+		Limit(limit).
+		All(ctx)
+	if err != nil {
+		return nil, apperror.Internal()
+	}
+	actorIDs := make([]string, 0, len(rows))
+	for _, r := range rows {
+		actorIDs = append(actorIDs, r.ActorID)
+	}
+	actors := s.loadActors(ctx, actorIDs)
+	items := make([]Item, 0, len(rows))
+	for _, r := range rows {
+		items = append(items, toItem(r, actors[r.ActorID]))
+	}
+	return items, nil
+}
+
 func (s *Service) UnreadCount(ctx context.Context, userID string) (int, error) {
 	n, err := s.db.Notification.Query().
 		Where(notification.RecipientID(userID), notification.ReadAtIsNil()).

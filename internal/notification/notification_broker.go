@@ -3,8 +3,10 @@ package notification
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -21,30 +23,30 @@ type Broker interface {
 
 func channelFor(userID string) string { return channelPrefix + userID }
 
-// NewBroker picks Redis when redisURL is set, memory otherwise. Empty,
-// localhost, and unreachable URLs fall back to memory so `make dev`
-// works without containers.
-func NewBroker(redisURL string) Broker {
-	if strings.TrimSpace(redisURL) == "" {
-		return NewMemoryBroker()
-	}
-	rdb := redis.NewClient(&redis.Options{Addr: redisAddr(redisURL)})
-	if err := rdb.Ping(context.Background()).Err(); err != nil {
-		return NewMemoryBroker()
-	}
-	return NewRedisBroker(rdb)
-}
+// pingTimeout bounds the startup Redis check so a hung server can't
+// stall boot forever.
+const pingTimeout = 5 * time.Second
 
-func redisAddr(raw string) string {
-	s := strings.TrimSpace(raw)
-	s = strings.TrimPrefix(s, "redis://")
-	if i := strings.Index(s, "/"); i >= 0 {
-		s = s[:i]
+// NewBroker picks Redis when redisURL is set, memory otherwise. An empty
+// URL means memory; a set-but-bad URL is an error — silently falling back
+// would hide a misconfigured fan-out (cross-instance delivery silently
+// lost) behind a working single-instance setup.
+func NewBroker(redisURL string) (Broker, error) {
+	if strings.TrimSpace(redisURL) == "" {
+		return NewMemoryBroker(), nil
 	}
-	if s == "" {
-		return "localhost:6379"
+	opts, err := redis.ParseURL(strings.TrimSpace(redisURL))
+	if err != nil {
+		return nil, fmt.Errorf("parse redis url: %w", err)
 	}
-	return s
+	rdb := redis.NewClient(opts)
+	ctx, cancel := context.WithTimeout(context.Background(), pingTimeout)
+	defer cancel()
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		_ = rdb.Close()
+		return nil, fmt.Errorf("ping redis: %w", err)
+	}
+	return NewRedisBroker(rdb), nil
 }
 
 type memoryBroker struct {

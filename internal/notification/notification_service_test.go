@@ -160,3 +160,25 @@ func TestList_NewestFirst(t *testing.T) {
 	assert.Equal(t, "e-new", page.Notifications[0].EntityID)
 	assert.Equal(t, "e-old", page.Notifications[1].EntityID)
 }
+
+func TestListSince_ReturnsNewerOldestFirst(t *testing.T) {
+	svc := newTestService(t)
+	ctx := context.Background()
+	recipient := mustUser(t, svc, "karl", "karl@example.com")
+	actorID := mustUser(t, svc, "leo", "leo@example.com")
+
+	first, err := svc.NotifyFollow(ctx, recipient, Actor{ID: actorID, Name: "Leo"}, "s1")
+	require.NoError(t, err)
+	time.Sleep(2 * time.Millisecond)
+	second, err := svc.NotifyFollow(ctx, recipient, Actor{ID: actorID, Name: "Leo"}, "s2")
+	require.NoError(t, err)
+
+	items, err := svc.ListSince(ctx, recipient, first.ID, 20)
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	assert.Equal(t, second.ID, items[0].ID)
+
+	items, err = svc.ListSince(ctx, recipient, second.ID, 20)
+	require.NoError(t, err)
+	assert.Empty(t, items)
+}

@@ -67,11 +67,15 @@ export function useNotificationStream(handlers?: StreamHandlers) {
         }
       } catch {
         if (cancelled) return;
-        attempts += 1;
-        const backoff = Math.min(1000 * 2 ** attempts, 15000);
-        await new Promise((r) => setTimeout(r, backoff));
-        if (!cancelled) void connect();
       }
+      // Reached on clean completion (server/proxy closed the stream) as
+      // well as read errors: both schedule the backoff retry. Teardown
+      // returns before this via `cancelled`.
+      if (cancelled) return;
+      attempts += 1;
+      const backoff = Math.min(1000 * 2 ** attempts, 15000);
+      await new Promise((r) => setTimeout(r, backoff));
+      if (!cancelled) void connect();
     };
 
     void connect();

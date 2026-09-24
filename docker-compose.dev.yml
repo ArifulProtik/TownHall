@@ -1,6 +1,10 @@
 # Local dev stack: hot-reload app (api + web) plus throwaway pg + redis.
 # Usage: make dev-docker   (stop native `make dev-all` first: both want :8080/:5173)
 # Data lives in dev-named volumes, separate from the prod compose stack.
+# Distinct project name: without it Compose would share the default
+# project's db/redis containers and volumes with docker-compose.yml.
+name: townhall-dev
+
 services:
   db:
     image: postgres:17-alpine
@@ -43,7 +47,7 @@ services:
       APP_ENV: development # pretty logs + dev AutoMigrate on boot
       LOG_LEVEL: debug
       DATABASE_URL: postgres://postgres:postgres@db:5432/chat_platform?sslmode=disable
-      JWT_SECRET: dev-secret-change-me # local only — never reuse in shared envs
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in your shell or .env (make setup copies .env.example)} # local only — never reuse in shared envs
       JWT_ACCESS_TTL: 15m
       JWT_REFRESH_TTL: 720h
       REDIS_URL: redis://redis:6379
@@ -51,7 +55,7 @@ services:
       - .:/src
       - /src/tmp
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     stdin_open: true
     tty: true
 
@@ -71,7 +75,7 @@ services:
     # Named volume starts empty and shadows the bind mount: install first.
     command: ["sh", "-c", "bun install && bun run dev --host 0.0.0.0 --port 5173"]
     ports:
-      - "5173:5173"
+      - "127.0.0.1:5173:5173"
     stdin_open: true
     tty: true
 
