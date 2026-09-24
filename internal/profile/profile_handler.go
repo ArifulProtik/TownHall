@@ -57,7 +57,9 @@ func (h *Handler) UpdateProfile(c *echo.Context) error {
 	if err != nil {
 		return response.Error(c, err)
 	}
-	return c.JSON(http.StatusOK, ToResponse(u, uid))
+	resp := ToResponse(u, uid)
+	resp.FollowersCount, resp.FollowingCount = h.svc.FollowCounts(c.Request().Context(), u.ID)
+	return c.JSON(http.StatusOK, resp)
 }
 
 func (h *Handler) UploadFile(c *echo.Context) error {

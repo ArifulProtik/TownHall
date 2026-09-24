@@ -7,6 +7,7 @@ import (
 	"unicode/utf8"
 
 	"ArifulProtik/TownHall/ent"
+	"ArifulProtik/TownHall/ent/follow"
 	"ArifulProtik/TownHall/ent/user"
 	"ArifulProtik/TownHall/internal/filestore"
 	"ArifulProtik/TownHall/pkg/apperror"
@@ -54,7 +55,17 @@ func (s *Service) GetProfile(ctx context.Context, viewerID, handle string) (*Res
 	}
 
 	resp := ToResponse(u, viewerID)
+	resp.FollowersCount, resp.FollowingCount = s.FollowCounts(ctx, u.ID)
 	return &resp, nil
+}
+
+// FollowCounts returns (followers, following) for userID, querying the Follow
+// edge table directly (no domain-to-domain import). Stats never fail callers:
+// errors degrade to zero so profile reads stay available.
+func (s *Service) FollowCounts(ctx context.Context, userID string) (int, int) {
+	followers, _ := s.db.Follow.Query().Where(follow.FollowingID(userID)).Count(ctx)
+	following, _ := s.db.Follow.Query().Where(follow.FollowerID(userID)).Count(ctx)
+	return followers, following
 }
 
 // textField is one editable profile field: its input, its length limits in
