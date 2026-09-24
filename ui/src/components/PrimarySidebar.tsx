@@ -1,10 +1,18 @@
 import { House, ChatCircleDots, Plus } from '@phosphor-icons/react';
 import { SidebarRailItem } from '@/components/SidebarRailItem';
-import { NotificationBell } from '@/components/NotificationBell';
 import { UserMenuPopover } from '@/components/UserMenuPopover';
 import { mockSpaces } from '@/features/spaces/mocks';
+import { useGetUnreadCountQuery } from '@/features/notifications/notificationsApi';
+import { useNotificationStream } from '@/features/notifications/useNotificationStream';
+import { NotificationsPopover } from '@/features/notifications/components/NotificationsPopover';
+import { useSelector } from 'react-redux';
+import { selectIsAuthenticated } from '@/features/auth/authSlice';
 
 export function PrimarySidebar() {
+  const isAuthed = useSelector(selectIsAuthenticated);
+  useNotificationStream();
+  const { data } = useGetUnreadCountQuery(undefined, { skip: !isAuthed });
+  const count = data?.count ?? 0;
   return (
     <nav
       aria-label="Primary navigation rail"
@@ -51,7 +59,7 @@ export function PrimarySidebar() {
 
       {/* Bottom Pinned: Notifications & User Avatar */}
       <div className="mt-auto flex w-full flex-col items-center gap-1 pt-2">
-        <NotificationBell />
+        <NotificationsPopover count={count} />
         <UserMenuPopover />
       </div>
     </nav>

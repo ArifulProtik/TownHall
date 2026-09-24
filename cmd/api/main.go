@@ -13,7 +13,9 @@ import (
 	"ArifulProtik/TownHall/ent"
 	"ArifulProtik/TownHall/internal/auth"
 	"ArifulProtik/TownHall/internal/config"
+	"ArifulProtik/TownHall/internal/eventbus"
 	"ArifulProtik/TownHall/internal/filestore"
+	"ArifulProtik/TownHall/internal/notification"
 	"ArifulProtik/TownHall/internal/platform"
 	"ArifulProtik/TownHall/internal/profile"
 	"ArifulProtik/TownHall/internal/social"
@@ -68,13 +70,26 @@ func run() error {
 	e.Logger = appLog
 	appmiddleware.Register(e, appLog)
 
-	authSvc := auth.NewService(entClient, cfg.JWTSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL)
+	authSvc := auth.NewService(entClient, cfg.JWTSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL, auth.NewMemoryLimiter())
 	authHandler := auth.NewHandler(authSvc, cfg.IsProd(), cfg.AppEnv)
 
 	profileSvc := profile.NewService(entClient, filestore.New(cfg.UploadthingToken, "./uploads"))
 	profileHandler := profile.NewHandler(profileSvc, cfg.JWTSecret)
 
-	socialSvc := social.NewService(entClient)
+	notifBroker, err := notification.NewBroker(cfg.RedisURL)
+	if err != nil {
+		appLog.Error("notification broker failed", slog.Any("error", err))
+		return err
+	}
+	notifSvc := notification.NewService(entClient, notifBroker)
+	notifHandler := notification.NewHandler(notifSvc)
+
+	// The bus carries domain events; notification subscribes. Adding a
+	// future event type touches neither this wiring nor publishers.
+	bus := eventbus.New()
+	notification.Register(bus, notifSvc)
+
+	socialSvc := social.NewService(entClient, bus)
 	socialHandler := social.NewHandler(socialSvc, cfg.JWTSecret)
 
 	e.Static("/uploads", "./uploads")
@@ -86,6 +101,7 @@ func run() error {
 	authHandler.RegisterRoutes(public, protected)
 	profileHandler.RegisterRoutes(public, protected)
 	socialHandler.RegisterRoutes(public, protected)
+	notifHandler.RegisterRoutes(public, protected)
 
 	sigCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

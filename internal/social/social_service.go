@@ -8,6 +8,8 @@ import (
 	"ArifulProtik/TownHall/ent"
 	"ArifulProtik/TownHall/ent/follow"
 	"ArifulProtik/TownHall/ent/user"
+	"ArifulProtik/TownHall/internal/eventbus"
+	"ArifulProtik/TownHall/internal/userlookup"
 	"ArifulProtik/TownHall/pkg/apperror"
 )
 
@@ -18,41 +20,19 @@ const (
 
 // Service owns follow edges. Friendship is derived (mutual edges), never stored.
 type Service struct {
-	db *ent.Client
+	db  *ent.Client
+	bus eventbus.Publisher
 }
 
-func NewService(db *ent.Client) *Service {
-	return &Service{db: db}
+// Social publishes domain events to the bus; it never knows who
+// subscribes (notification does). Nil bus means silent.
+func NewService(db *ent.Client, bus eventbus.Publisher) *Service {
+	return &Service{db: db, bus: bus}
 }
 
-// resolveTarget maps handle -> user: trim, "me" -> viewer (401 when anonymous),
-// username (lowercased) first, id second, else 404.
+// resolveTarget maps handle -> user via the shared lookup.
 func (s *Service) resolveTarget(ctx context.Context, viewerID, target string) (*ent.User, error) {
-	clean := strings.TrimSpace(target)
-	if clean == "" {
-		return nil, apperror.BadRequest("handle is required")
-	}
-	if strings.EqualFold(clean, "me") {
-		if viewerID == "" {
-			return nil, apperror.Unauthorized("unauthorized")
-		}
-		clean = viewerID
-	}
-	u, err := s.db.User.Query().Where(user.UsernameEQ(strings.ToLower(clean))).Only(ctx)
-	if err == nil {
-		return u, nil
-	}
-	if !ent.IsNotFound(err) {
-		return nil, apperror.Internal()
-	}
-	u, err = s.db.User.Get(ctx, clean)
-	if err != nil {
-		if ent.IsNotFound(err) {
-			return nil, apperror.NotFound("user not found")
-		}
-		return nil, apperror.Internal()
-	}
-	return u, nil
+	return userlookup.Resolve(ctx, s.db, viewerID, target)
 }
 
 func (s *Service) edgeExists(ctx context.Context, followerID, followingID string) bool {
@@ -87,6 +67,8 @@ func (s *Service) statusFor(ctx context.Context, viewerID string, target *ent.Us
 }
 
 // Follow creates follower actorID -> target. Idempotent: duplicate follow is success.
+// Only new edges notify; duplicates and self-follows never fan out.
+// A follow completing a mutual pair notifies as a friend (follow-back).
 func (s *Service) Follow(ctx context.Context, actorID, target string) (*StatusResponse, error) {
 	if strings.TrimSpace(actorID) == "" {
 		return nil, apperror.Unauthorized("unauthorized")
@@ -98,7 +80,7 @@ func (s *Service) Follow(ctx context.Context, actorID, target string) (*StatusRe
 	if t.ID == actorID {
 		return nil, apperror.BadRequest("cannot follow yourself")
 	}
-	_, err = s.db.Follow.Create().
+	edge, err := s.db.Follow.Create().
 		SetFollowerID(actorID).
 		SetFollowingID(t.ID).
 		Save(ctx)
@@ -107,6 +89,17 @@ func (s *Service) Follow(ctx context.Context, actorID, target string) (*StatusRe
 			return s.statusFor(ctx, actorID, t), nil
 		}
 		return nil, apperror.Internal()
+	}
+	if s.bus != nil {
+		actor, aerr := s.db.User.Get(ctx, actorID)
+		if aerr == nil {
+			evt := eventbus.Actor{ID: actor.ID, Name: actor.Name, Username: actor.Username, AvatarURL: actor.AvatarURL}
+			if s.edgeExists(ctx, t.ID, actorID) {
+				_ = s.bus.Publish(ctx, eventbus.FriendshipFormed{RecipientID: t.ID, Actor: evt, EntityID: edge.ID})
+			} else {
+				_ = s.bus.Publish(ctx, eventbus.FollowCreated{RecipientID: t.ID, Actor: evt, EntityID: edge.ID})
+			}
+		}
 	}
 	return s.statusFor(ctx, actorID, t), nil
 }

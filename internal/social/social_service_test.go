@@ -8,6 +8,7 @@ import (
 	"ArifulProtik/TownHall/ent"
 	"ArifulProtik/TownHall/ent/enttest"
 	"ArifulProtik/TownHall/ent/user"
+	"ArifulProtik/TownHall/internal/eventbus"
 	"ArifulProtik/TownHall/pkg/apperror"
 
 	"github.com/stretchr/testify/assert"
@@ -20,7 +21,7 @@ func newTestService(t *testing.T) *Service {
 	t.Helper()
 	client := enttest.Open(t, "sqlite3", "file:socialservice?mode=memory&cache=shared&_fk=1")
 	t.Cleanup(func() { _ = client.Close() })
-	return NewService(client)
+	return NewService(client, nil)
 }
 
 func createSocialUser(t *testing.T, client *ent.Client, username, email string) *ent.User {
@@ -245,4 +246,42 @@ func TestFollow_ListFriendsLosesNothingAfterOneSided(t *testing.T) {
 	require.Len(t, p2.Users, 1)
 	assert.Equal(t, m3.ID, p2.Users[0].ID)
 	assert.False(t, p2.HasMore)
+}
+
+type recordingBus struct {
+	follows []eventbus.FollowCreated
+	friends []eventbus.FriendshipFormed
+}
+
+func (f *recordingBus) Publish(_ context.Context, evt any) error {
+	switch e := evt.(type) {
+	case eventbus.FollowCreated:
+		f.follows = append(f.follows, e)
+	case eventbus.FriendshipFormed:
+		f.friends = append(f.friends, e)
+	}
+	return nil
+}
+
+func TestFollow_FollowBackNotifiesFriend(t *testing.T) {
+	client := enttest.Open(t, "sqlite3", "file:socialfriend?mode=memory&cache=shared&_fk=1")
+	t.Cleanup(func() { _ = client.Close() })
+	bus := &recordingBus{}
+	svc := NewService(client, bus)
+	ctx := context.Background()
+
+	alice := createSocialUser(t, client, "alice", "alice@example.com")
+	bob := createSocialUser(t, client, "bob", "bob@example.com")
+
+	_, err := svc.Follow(ctx, alice.ID, bob.Username)
+	require.NoError(t, err)
+	require.Len(t, bus.follows, 1)
+	assert.Equal(t, bob.ID, bus.follows[0].RecipientID)
+	assert.Empty(t, bus.friends)
+
+	_, err = svc.Follow(ctx, bob.ID, alice.Username)
+	require.NoError(t, err)
+	require.Len(t, bus.friends, 1)
+	assert.Equal(t, alice.ID, bus.friends[0].RecipientID)
+	assert.Len(t, bus.follows, 1)
 }

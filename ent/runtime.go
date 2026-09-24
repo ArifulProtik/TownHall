@@ -4,6 +4,7 @@ package ent
 
 import (
 	"ArifulProtik/TownHall/ent/follow"
+	"ArifulProtik/TownHall/ent/notification"
 	"ArifulProtik/TownHall/ent/refreshtoken"
 	"ArifulProtik/TownHall/ent/schema"
 	"ArifulProtik/TownHall/ent/user"
@@ -43,6 +44,43 @@ func init() {
 	follow.DefaultID = followDescID.Default.(func() string)
 	// follow.IDValidator is a validator for the "id" field. It is called by the builders before save.
 	follow.IDValidator = followDescID.Validators[0].(func(string) error)
+	notificationMixin := schema.Notification{}.Mixin()
+	notificationMixinFields0 := notificationMixin[0].Fields()
+	_ = notificationMixinFields0
+	notificationFields := schema.Notification{}.Fields()
+	_ = notificationFields
+	// notificationDescCreatedAt is the schema descriptor for created_at field.
+	notificationDescCreatedAt := notificationMixinFields0[1].Descriptor()
+	// notification.DefaultCreatedAt holds the default value on creation for the created_at field.
+	notification.DefaultCreatedAt = notificationDescCreatedAt.Default.(func() time.Time)
+	// notificationDescUpdatedAt is the schema descriptor for updated_at field.
+	notificationDescUpdatedAt := notificationMixinFields0[2].Descriptor()
+	// notification.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	notification.DefaultUpdatedAt = notificationDescUpdatedAt.Default.(func() time.Time)
+	// notification.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	notification.UpdateDefaultUpdatedAt = notificationDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// notificationDescRecipientID is the schema descriptor for recipient_id field.
+	notificationDescRecipientID := notificationFields[0].Descriptor()
+	// notification.RecipientIDValidator is a validator for the "recipient_id" field. It is called by the builders before save.
+	notification.RecipientIDValidator = notificationDescRecipientID.Validators[0].(func(string) error)
+	// notificationDescActorID is the schema descriptor for actor_id field.
+	notificationDescActorID := notificationFields[1].Descriptor()
+	// notification.ActorIDValidator is a validator for the "actor_id" field. It is called by the builders before save.
+	notification.ActorIDValidator = notificationDescActorID.Validators[0].(func(string) error)
+	// notificationDescEntityType is the schema descriptor for entity_type field.
+	notificationDescEntityType := notificationFields[3].Descriptor()
+	// notification.EntityTypeValidator is a validator for the "entity_type" field. It is called by the builders before save.
+	notification.EntityTypeValidator = notificationDescEntityType.Validators[0].(func(string) error)
+	// notificationDescEntityID is the schema descriptor for entity_id field.
+	notificationDescEntityID := notificationFields[4].Descriptor()
+	// notification.EntityIDValidator is a validator for the "entity_id" field. It is called by the builders before save.
+	notification.EntityIDValidator = notificationDescEntityID.Validators[0].(func(string) error)
+	// notificationDescID is the schema descriptor for id field.
+	notificationDescID := notificationMixinFields0[0].Descriptor()
+	// notification.DefaultID holds the default value on creation for the id field.
+	notification.DefaultID = notificationDescID.Default.(func() string)
+	// notification.IDValidator is a validator for the "id" field. It is called by the builders before save.
+	notification.IDValidator = notificationDescID.Validators[0].(func(string) error)
 	refreshtokenMixin := schema.RefreshToken{}.Mixin()
 	refreshtokenMixinFields0 := refreshtokenMixin[0].Fields()
 	_ = refreshtokenMixinFields0

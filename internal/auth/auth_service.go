@@ -22,8 +22,11 @@ type Service struct {
 	refreshTTL time.Duration
 }
 
-func NewService(db *ent.Client, secret string, accessTTL, refreshTTL time.Duration) *Service {
-	return &Service{db: db, secret: secret, accessTTL: accessTTL, refreshTTL: refreshTTL, limiter: NewMemoryLimiter()}
+func NewService(db *ent.Client, secret string, accessTTL, refreshTTL time.Duration, limiter Limiter) *Service {
+	if limiter == nil {
+		limiter = NewMemoryLimiter()
+	}
+	return &Service{db: db, secret: secret, accessTTL: accessTTL, refreshTTL: refreshTTL, limiter: limiter}
 }
 
 func (s *Service) SignupEmail(ctx context.Context, in SignupEmail) (*ent.User, error) {

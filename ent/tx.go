@@ -14,6 +14,8 @@ type Tx struct {
 	config
 	// Follow is the client for interacting with the Follow builders.
 	Follow *FollowClient
+	// Notification is the client for interacting with the Notification builders.
+	Notification *NotificationClient
 	// RefreshToken is the client for interacting with the RefreshToken builders.
 	RefreshToken *RefreshTokenClient
 	// User is the client for interacting with the User builders.
@@ -150,6 +152,7 @@ func (tx *Tx) Client() *Client {
 
 func (tx *Tx) init() {
 	tx.Follow = NewFollowClient(tx.config)
+	tx.Notification = NewNotificationClient(tx.config)
 	tx.RefreshToken = NewRefreshTokenClient(tx.config)
 	tx.User = NewUserClient(tx.config)
 }
