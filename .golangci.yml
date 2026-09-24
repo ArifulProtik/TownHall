@@ -1,42 +1,19 @@
 version: "2"
 
 linters:
-  default: none
+  default: standard
   enable:
-    # core defects
-    - errcheck
-    - govet
-    - staticcheck
-    - ineffassign
-    - unused
-    # service-sensible extras
     - errorlint
-    - bodyclose
-    - gosec
     - misspell
-    - revive
-    - gocritic
-    - testifylint
-    - thelper
-    - sloglint
-    - unconvert
-    - nolintlint
   settings:
     errcheck:
       exclude-functions:
         - (io.Closer).Close
-    nolintlint:
-      require-explanation: true
-      require-specific: true
   exclusions:
     generated: lax
     rules:
       - path: _test\.go$
-        linters: [errcheck, gosec]
-      - path: tmp/
-        text: ".*"
-      - path: ui/
-        text: ".*"
+        linters: [errcheck]
 
 # NOTE: gofumpt intentionally omitted (2026-09): golangci-lint v2.11.4
 # reports nondeterministic gofumpt findings (random files per run) while

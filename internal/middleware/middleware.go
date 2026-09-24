@@ -11,9 +11,7 @@ import (
 	echomw "github.com/labstack/echo/v5/middleware"
 )
 
-// Register wires the global middleware stack (including Prometheus
-// instrumentation). RequestID must precede RequestLogger so access
-// logs can read the request id.
+// RequestID must precede RequestLogger so access logs carry the id.
 func Register(e *echo.Echo, log *slog.Logger) {
 	RegisterMetrics(e)
 	e.Use(echomw.Recover())
@@ -23,7 +21,6 @@ func Register(e *echo.Echo, log *slog.Logger) {
 		},
 	}))
 	e.Use(echomw.RequestLoggerWithConfig(echomw.RequestLoggerConfig{
-		// Each value must be opted into — unset fields arrive as zero values.
 		LogLatency:   true,
 		LogMethod:    true,
 		LogURIPath:   true,
@@ -31,7 +28,6 @@ func Register(e *echo.Echo, log *slog.Logger) {
 		LogRequestID: true,
 		LogStatus:    true,
 		LogValuesFunc: func(_ *echo.Context, v echomw.RequestLoggerValues) error {
-			// Human-readable one-liner; details stay as structured attrs.
 			msg := fmt.Sprintf("%s %s → %d · %dms", v.Method, v.URIPath, v.Status, v.Latency.Milliseconds())
 			attrs := []any{
 				slog.String("method", v.Method),

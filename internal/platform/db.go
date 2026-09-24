@@ -1,4 +1,4 @@
-// Package platform owns external infrastructure clients (Postgres via Ent).
+// Package platform owns outside-world clients (Postgres via Ent).
 package platform
 
 import (
@@ -17,7 +17,6 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-// Open creates an Ent client backed by Postgres via pgx stdlib.
 func Open(ctx context.Context, databaseURL string) (*ent.Client, error) {
 	db, err := sql.Open("pgx", databaseURL)
 	if err != nil {
@@ -33,7 +32,8 @@ func Open(ctx context.Context, databaseURL string) (*ent.Client, error) {
 	return ent.NewClient(ent.Driver(drv)), nil
 }
 
-// WithTx executes fn inside an Ent transaction, committing if fn returns nil or rolling back on error or panic.
+// WithTx runs fn in a transaction. Auth Refresh rolls its own instead:
+// it commits revoked-token cleanup on paths that still answer 401.
 func WithTx(ctx context.Context, client *ent.Client, fn func(tx *ent.Tx) error) error {
 	tx, err := client.Tx(ctx)
 	if err != nil {
@@ -54,8 +54,7 @@ func WithTx(ctx context.Context, client *ent.Client, fn func(tx *ent.Tx) error) 
 	return tx.Commit()
 }
 
-// AutoMigrate runs Ent schema creation with destructive options.
-// Call only in development.
+// AutoMigrate is destructive. Development only.
 func AutoMigrate(ctx context.Context, client *ent.Client) error {
 	return client.Schema.Create(
 		ctx,
@@ -64,8 +63,7 @@ func AutoMigrate(ctx context.Context, client *ent.Client) error {
 	)
 }
 
-// Migrate runs Ent schema creation without destructive options.
-// Safe for explicit opt-in (e.g. AUTO_MIGRATE=true) outside development.
+// Migrate creates schema without dropping anything (AUTO_MIGRATE=true).
 func Migrate(ctx context.Context, client *ent.Client) error {
 	return client.Schema.Create(ctx)
 }

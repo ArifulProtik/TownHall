@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"testing"
@@ -10,9 +9,7 @@ import (
 	"ArifulProtik/TownHall/ent/enttest"
 	"ArifulProtik/TownHall/ent/refreshtoken"
 	"ArifulProtik/TownHall/ent/user"
-	"ArifulProtik/TownHall/internal/config"
 	"ArifulProtik/TownHall/pkg/apperror"
-	"ArifulProtik/TownHall/pkg/logger"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -21,17 +18,15 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func newTestService(t *testing.T) (*Service, *bytes.Buffer) {
+func newTestService(t *testing.T) *Service {
 	t.Helper()
 	client := enttest.Open(t, "sqlite3", "file:authservice?mode=memory&cache=shared&_fk=1")
 	t.Cleanup(func() { client.Close() })
-	var buf bytes.Buffer
-	svc := NewService(&config.Config{AppEnv: "test"}, client, logger.NewWithWriter("test", "info", &buf))
-	return svc, &buf
+	return NewService(client, "test-secret", 15*time.Minute, 720*time.Hour)
 }
 
 func TestSignupEmail_HappyPath(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc := newTestService(t)
 
 	u, err := svc.SignupEmail(context.Background(), SignupEmail{
 		Name:     " Joe ",
@@ -53,8 +48,8 @@ func TestSignupEmail_HappyPath(t *testing.T) {
 }
 
 func TestSignupEmail_DuplicateEmail(t *testing.T) {
-	svc, buf := newTestService(t)
-	ctx := logger.ContextWithRequestID(context.Background(), "req-dup-1")
+	svc := newTestService(t)
+	ctx := context.Background()
 
 	_, err := svc.SignupEmail(ctx, SignupEmail{
 		Name:     "Joe",
@@ -74,23 +69,13 @@ func TestSignupEmail_DuplicateEmail(t *testing.T) {
 	ok := errors.As(err, &appErr)
 	require.True(t, ok, "expected *apperror.AppError, got %T", err)
 	assert.Equal(t, 409, appErr.Status)
-
-	assert.Contains(t, buf.String(), "duplicate email")
-	assert.Contains(t, buf.String(), "req-dup-1")
 }
 
 func newLoginService(t *testing.T) (*Service, context.Context) {
 	t.Helper()
 	client := enttest.Open(t, "sqlite3", "file:authlogin?mode=memory&cache=shared&_fk=1")
 	t.Cleanup(func() { client.Close() })
-	var buf bytes.Buffer
-	cfg := &config.Config{
-		AppEnv:        "test",
-		JWTSecret:     "test-secret-1234567890",
-		JWTAccessTTL:  15 * time.Minute,
-		JWTRefreshTTL: 720 * time.Hour,
-	}
-	svc := NewService(cfg, client, logger.NewWithWriter("test", "info", &buf))
+	svc := NewService(client, "test-secret-1234567890", 15*time.Minute, 720*time.Hour)
 	return svc, context.Background()
 }
 
@@ -230,7 +215,7 @@ func TestLogout_SingleAndAll(t *testing.T) {
 }
 
 func TestService_CheckUsername(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc := newTestService(t)
 	ctx := context.Background()
 
 	alice, err := svc.SignupEmail(ctx, SignupEmail{
@@ -277,7 +262,7 @@ func TestService_CheckUsername(t *testing.T) {
 }
 
 func TestService_SetupUsername_Conflict(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc := newTestService(t)
 	ctx := context.Background()
 
 	u1, err := svc.SignupEmail(ctx, SignupEmail{Name: "User 1", Email: "u1@example.com", Password: "password123"})
@@ -295,7 +280,7 @@ func TestService_SetupUsername_Conflict(t *testing.T) {
 }
 
 func TestService_ChangePassword(t *testing.T) {
-	svc, _ := newTestService(t)
+	svc := newTestService(t)
 	ctx := context.Background()
 
 	u, err := svc.SignupEmail(ctx, SignupEmail{

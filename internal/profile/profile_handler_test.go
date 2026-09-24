@@ -9,13 +9,13 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"ArifulProtik/TownHall/ent"
 	"ArifulProtik/TownHall/ent/enttest"
 	"ArifulProtik/TownHall/ent/user"
 	"ArifulProtik/TownHall/internal/auth"
-	"ArifulProtik/TownHall/internal/config"
-	"ArifulProtik/TownHall/pkg/logger"
+	"ArifulProtik/TownHall/internal/filestore"
 	"ArifulProtik/TownHall/pkg/validation"
 
 	"github.com/labstack/echo/v5"
@@ -30,12 +30,8 @@ func newTestProfileHandler(t *testing.T) (*echo.Echo, *Handler, *ent.Client) {
 	client := enttest.Open(t, "sqlite3", "file:profilehandler?mode=memory&cache=shared&_fk=1")
 	t.Cleanup(func() { client.Close() })
 
-	var buf bytes.Buffer
-	log := logger.NewWithWriter("test", "info", &buf)
-	cfg := &config.Config{AppEnv: "test"}
-	svc := NewService(cfg, client, log)
-	svc.SetUploadsDir(t.TempDir())
-	h := NewHandler(svc, "test-jwt-secret", log)
+	svc := NewService(client, filestore.New("", t.TempDir()))
+	h := NewHandler(svc, "test-jwt-secret")
 
 	e := echo.New()
 	e.Validator = validation.New()
@@ -73,11 +69,14 @@ func TestProfileHandler_GetProfile(t *testing.T) {
 	assert.False(t, resp.IsSelf)
 
 	// 2. Get by username with auth (owner)
+	tok, err := auth.MintAccessToken("test-jwt-secret", u.ID, time.Hour)
+	require.NoError(t, err)
+	reqAuth := httptest.NewRequest(http.MethodGet, "/api/v1/users/jordan_fox", nil)
+	reqAuth.Header.Set("Authorization", "Bearer "+tok)
 	recAuth := httptest.NewRecorder()
-	cAuth := e.NewContext(req, recAuth)
+	cAuth := e.NewContext(reqAuth, recAuth)
 	cAuth.SetPath("/api/v1/users/:handle")
 	cAuth.SetPathValues(echo.PathValues{{Name: "handle", Value: "jordan_fox"}})
-	cAuth.Set(auth.UserIDKey, u.ID)
 
 	require.NoError(t, h.GetProfile(cAuth))
 	assert.Equal(t, http.StatusOK, recAuth.Code)
@@ -202,7 +201,7 @@ func TestProfileHandler_UploadFile(t *testing.T) {
 	require.NoError(t, h.UploadFile(cAuth))
 	assert.Equal(t, http.StatusOK, recAuth.Code)
 
-	var uploadResp UploadResponse
+	var uploadResp filestore.Result
 	require.NoError(t, json.Unmarshal(recAuth.Body.Bytes(), &uploadResp))
 	assert.NotEmpty(t, uploadResp.URL)
 	assert.Equal(t, "test.png", uploadResp.Name)

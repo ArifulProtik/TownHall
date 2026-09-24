@@ -53,7 +53,7 @@ func TestMiddleware_Rejections(t *testing.T) {
 	} {
 		rec := runMiddleware("s3cret", http.MethodGet, "/api/v1/protected", bearer)
 		assert.Equal(t, http.StatusUnauthorized, rec.Code, name)
-		assert.JSONEq(t, `{"error":"unauthorized"}`, rec.Body.String(), name)
+		assert.JSONEq(t, `{"error":"unauthorized","code":"unauthorized"}`, rec.Body.String(), name)
 	}
 	_ = tok
 }

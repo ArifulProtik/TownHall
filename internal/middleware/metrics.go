@@ -28,15 +28,13 @@ var (
 	)
 )
 
-// RegisterMetrics wires Prometheus instrumentation: per-request RED
-// labels plus the /metrics scrape endpoint. The scrape endpoint itself
-// is not instrumented.
+// RegisterMetrics adds instrumentation plus the /metrics endpoint itself.
 func RegisterMetrics(e *echo.Echo) {
 	e.Use(Metrics())
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 }
 
-// Metrics records request count and latency, labeled by method/route/status.
+// Metrics records count and latency per method/route/status.
 func Metrics() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {

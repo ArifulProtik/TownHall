@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -12,6 +13,7 @@ import (
 	"ArifulProtik/TownHall/ent"
 	"ArifulProtik/TownHall/internal/auth"
 	"ArifulProtik/TownHall/internal/config"
+	"ArifulProtik/TownHall/internal/filestore"
 	"ArifulProtik/TownHall/internal/platform"
 	"ArifulProtik/TownHall/internal/profile"
 	"ArifulProtik/TownHall/pkg/logger"
@@ -23,33 +25,37 @@ import (
 )
 
 func main() {
-	// run logs failures itself; exit non-zero so supervisors restart.
 	if err := run(); err != nil {
+		log.Println("townhall:", err)
 		os.Exit(1)
 	}
 }
 
 func run() error {
-	cfg := config.New()
-	log := logger.New(cfg.AppEnv, cfg.LogLevel)
+	cfg, err := config.New()
+	if err != nil {
+		return err
+	}
+	appLog := logger.New(cfg.AppEnv, cfg.LogLevel)
+	slog.SetDefault(appLog)
 	ctx := context.Background()
 
-	entClient, err := openWithRetry(ctx, log, cfg.DatabaseURL)
+	entClient, err := openWithRetry(ctx, appLog, cfg.DatabaseURL)
 	if err != nil {
-		log.Error("platform open failed", slog.Any("error", err))
+		appLog.Error("platform open failed", slog.Any("error", err))
 		return err
 	}
 	defer func() { _ = entClient.Close() }()
 
 	if cfg.AppEnv == "development" {
 		if err := platform.AutoMigrate(ctx, entClient); err != nil {
-			log.Error("automigrate failed", slog.Any("error", err))
+			appLog.Error("automigrate failed", slog.Any("error", err))
 			return err
 		}
 	} else if cfg.AutoMigrate {
 		// Explicit opt-in (e.g. local compose): non-destructive create only.
 		if err := platform.Migrate(ctx, entClient); err != nil {
-			log.Error("migrate failed", slog.Any("error", err))
+			appLog.Error("migrate failed", slog.Any("error", err))
 			return err
 		}
 	}
@@ -58,14 +64,14 @@ func run() error {
 	e.Validator = validation.New()
 	// Route Echo's own logs (banner, startup, HTTP errors) through our
 	// handler — otherwise they bypass it as JSON.
-	e.Logger = log
-	appmiddleware.Register(e, log)
+	e.Logger = appLog
+	appmiddleware.Register(e, appLog)
 
-	authSvc := auth.NewService(cfg, entClient, log)
-	authHandler := auth.NewHandler(authSvc, log)
+	authSvc := auth.NewService(entClient, cfg.JWTSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL)
+	authHandler := auth.NewHandler(authSvc, cfg.IsProd(), cfg.AppEnv)
 
-	profileSvc := profile.NewService(cfg, entClient, log)
-	profileHandler := profile.NewHandler(profileSvc, cfg.JWTSecret, log)
+	profileSvc := profile.NewService(entClient, filestore.New(cfg.UploadthingToken, "./uploads"))
+	profileHandler := profile.NewHandler(profileSvc, cfg.JWTSecret)
 
 	e.Static("/uploads", "./uploads")
 
@@ -83,16 +89,16 @@ func run() error {
 		Address:         ":" + cfg.Port,
 		GracefulTimeout: 10 * time.Second,
 	}
-	log.Info("server starting", slog.String("addr", ":"+cfg.Port), slog.String("env", cfg.AppEnv))
+	appLog.Info("server starting", slog.String("addr", ":"+cfg.Port), slog.String("env", cfg.AppEnv))
 	if err := sc.Start(sigCtx, e); err != nil {
-		log.Info("server stopped", slog.Any("error", err))
+		appLog.Info("server stopped", slog.Any("error", err))
 	}
 	return nil
 }
 
 // openWithRetry dials Postgres until it accepts connections or the
 // budget (15 × 2s) runs out — containers rarely start in order.
-func openWithRetry(ctx context.Context, log *slog.Logger, databaseURL string) (*ent.Client, error) {
+func openWithRetry(ctx context.Context, appLog *slog.Logger, databaseURL string) (*ent.Client, error) {
 	var err error
 	for attempt := 1; attempt <= 15; attempt++ {
 		var client *ent.Client
@@ -100,7 +106,7 @@ func openWithRetry(ctx context.Context, log *slog.Logger, databaseURL string) (*
 		if err == nil {
 			return client, nil
 		}
-		log.Warn("database not ready, retrying",
+		appLog.Warn("database not ready, retrying",
 			slog.Int("attempt", attempt), slog.Any("error", err))
 		select {
 		case <-ctx.Done():

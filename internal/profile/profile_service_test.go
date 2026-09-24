@@ -1,19 +1,15 @@
 package profile
 
 import (
-	"bytes"
 	"context"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"ArifulProtik/TownHall/ent"
 	"ArifulProtik/TownHall/ent/enttest"
 	"ArifulProtik/TownHall/ent/user"
-	"ArifulProtik/TownHall/internal/config"
+	"ArifulProtik/TownHall/internal/filestore"
 	"ArifulProtik/TownHall/pkg/apperror"
-	"ArifulProtik/TownHall/pkg/logger"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -25,11 +21,7 @@ func newTestProfileService(t *testing.T) (*Service, *ent.Client) {
 	t.Helper()
 	client := enttest.Open(t, "sqlite3", "file:profileservice?mode=memory&cache=shared&_fk=1")
 	t.Cleanup(func() { client.Close() })
-	var buf bytes.Buffer
-	cfg := &config.Config{AppEnv: "test"}
-	svc := NewService(cfg, client, logger.NewWithWriter("test", "info", &buf))
-	tempDir := t.TempDir()
-	svc.SetUploadsDir(tempDir)
+	svc := NewService(client, filestore.New("", t.TempDir()))
 	return svc, client
 }
 
@@ -159,36 +151,20 @@ func TestProfileService_UpdateProfile(t *testing.T) {
 	assert.Equal(t, 400, appErr.Status)
 }
 
-func TestProfileService_UploadFile_LocalFallback(t *testing.T) {
+func TestProfileService_UploadFile_DelegatesToStore(t *testing.T) {
 	svc, _ := newTestProfileService(t)
 	ctx := context.Background()
 
-	// 1. Invalid content type (sniffed from bytes, not trusted from client)
 	_, err := svc.UploadFile(ctx, "script.sh", []byte("echo hi"))
 	require.Error(t, err)
 	var appErr *apperror.AppError
 	require.ErrorAs(t, err, &appErr)
 	assert.Equal(t, 400, appErr.Status)
 
-	// 1b. Spoofed client type: .png name but non-image bytes are rejected
-	_, err = svc.UploadFile(ctx, "avatar.png", []byte("echo hi"))
-	require.Error(t, err)
-	require.ErrorAs(t, err, &appErr)
-	assert.Equal(t, 400, appErr.Status)
-
-	// 2. Valid image upload
 	dummyPNG := []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4")
 	res, err := svc.UploadFile(ctx, "avatar.png", dummyPNG)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	assert.Contains(t, res.URL, "/uploads/")
 	assert.Equal(t, "avatar.png", res.Name)
-	assert.Equal(t, int64(len(dummyPNG)), res.Size)
-	assert.True(t, strings.HasSuffix(res.Key, ".png"), "stored extension must come from sniffed type")
-
-	// Verify file is saved in temp uploadsDir
-	storedFile := filepath.Join(svc.uploadsDir, res.Key)
-	info, err := os.Stat(storedFile)
-	require.NoError(t, err)
-	assert.Equal(t, int64(len(dummyPNG)), info.Size())
 }

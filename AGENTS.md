@@ -18,7 +18,7 @@
 
 ## Setup gotcha
 
-- `config.New()` calls `log.Fatalf` if `DATABASE_URL` or `JWT_SECRET` is unset. Server/tests that boot the app need `.env` present (godotenv loads from repo root). Unit tests avoid this by constructing `&config.Config{...}` directly.
+- `config.New()` returns an error if `DATABASE_URL` or `JWT_SECRET` is unset. Server needs `.env` present (godotenv loads from repo root). Unit tests never call it — they construct services directly (`NewService(client, ...)`, no config needed).
 
 ## Echo v5 quirks (verified)
 
@@ -36,37 +36,46 @@
 
 ## Auth pattern
 
-- `internal/auth/`: `auth_model.go` (request/response + `validate` tags) → `auth_service.go` (`NewService(cfg, db, log)` holds `*ent.Client` directly, no repo layer) → `auth_handler.go` (bind → validate → service, maps `apperror.AppError` to status). Handlers mount public/protected endpoints via `RegisterRoutes(public, protected)`.
-- Passwords: bcrypt, `max=72` in the validate tag is the bcrypt limit — keep it. Never return the hash; use `ToUserResponse`.
+- `internal/auth/`: `auth_model.go` (request/response + `validate` tags) → `auth_service.go` (`NewService(db, secret, accessTTL, refreshTTL)` holds `*ent.Client` directly, no repo layer) → `auth_handler.go` (`response.Bind` → service → `response.Error`). Handlers mount public/protected endpoints via `RegisterRoutes(public, protected)`.
+- Shared handler helpers: `response.Bind(c, &req) bool` (bind+validate, writes 400), `response.CurrentUserID(c)` (writes 401, reads `response.UserIDKey`), `auth.ViewerID(r, secret)` (optional auth, `""` when anonymous). Cookie build/clear in `auth_cookies.go`; `secure` + `env` injected into `NewHandler` (no `GetAppEnv`, no config in services).
+- Passwords: bcrypt, `max=72` in the validate tag is the bcrypt limit — keep it. Never return the hash; use `ToUserResponse` (`profile.ToResponse` builds on it).
 - Duplicate email/username surfaces as `ent.IsConstraintError` → 409.
 
 ## Logging (slog, stdlib only)
 
-- Build via `logger.New(env, level)` (`pkg/logger`): JSON to stdout in production, pretty single-line text elsewhere (`18:04:12.345 INFO POST /path → 200 · 3ms ...`), `AddSource` always on (file:line on every record). No new logging deps.
+- Build via `logger.New(env, level)` (`pkg/logger`): JSON to stdout in production, pretty single-line text elsewhere (`18:04:12.345 INFO POST /path → 200 · 3ms ...`), `AddSource` always on (file:line on every record). `main.go` calls `slog.SetDefault(log)` so `response.Error` can log without plumbing. No new logging deps.
 - Dev colors are ANSI and TTY-gated (`NO_COLOR`/`TERM=dumb` respected; pipes/tests stay plain) via a custom `slog.Handler` (`pkg/logger/pretty.go`) — level color doubles as status color since access logs map status class to level.
-- Never wrap the logger in helper funcs — wrappers break call-site source lines. Pass `*slog.Logger` via constructors (`NewService(cfg, db, log)`), never globals.
-- Levels: `Error` = unexpected failures/5xx + fatal startup paths (`log.Error(...)` then `os.Exit(1)` — slog has no Fatal); `Warn` = 4xx, validation failures, duplicate-email; `Info` = lifecycle + access logs.
-- Request ID: `appmiddleware.Register(e, log)` (`internal/middleware/middleware.go`) owns the whole stack — Recover, RequestID, slog RequestLogger, CORS. `middleware.RequestID` must stay **before** `RequestLogger`. Stash with `c.Set(logger.RequestIDKey, rid)`, thread into services via `logger.ContextWithRequestID(ctx, rid)`, log with `logger.WithContext(ctx, s.log)`.
-- Access logs use a custom `RequestLoggerConfig.LogValuesFunc` in `internal/middleware` (Info <400 / Warn 4xx / Error 5xx; human summary `METHOD path → status · ms` in `msg`, details as attrs). Every logged value needs its `LogMethod/LogURIPath/...` opt-in flag or it arrives as a zero value. Keep `internal/config` on stdlib `log` — the logger doesn't exist at config-load time.
+- Handlers and services hold no logger. Only two places log: `response.Error` (5xx only, via `slog.Default`) and `main.go` startup paths (`log.Error(...)` then `os.Exit(1)` — slog has no Fatal). 4xx are never logged per-request; the access log already records them.
+- Request ID: `appmiddleware.Register(e, log)` (`internal/middleware/middleware.go`) owns the whole stack — Recover, RequestID, slog RequestLogger, CORS. `middleware.RequestID` must stay **before** `RequestLogger`. Access logs use a custom `RequestLoggerConfig.LogValuesFunc` in `internal/middleware` (Info <400 / Warn 4xx / Error 5xx; human summary `METHOD path → status · ms` in `msg`, details as attrs). Every logged value needs its `LogMethod/LogURIPath/...` opt-in flag or it arrives as a zero value. Keep `internal/config` on stdlib errors — the logger doesn't exist at config-load time.
 - `main.go` sets `e.Logger = log`: Echo's own logs (banner, startup, HTTP errors) default to JSON and must be routed through our handler. `source` paths are trimmed to two segments (`auth/auth_service.go:56`).
 - Level override: `LOG_LEVEL` env (`debug/info/warn/error`, default `info`) via `Config.LogLevel`. No vendor shipper SDK — stdout JSON is the shipping contract.
 
+## Where things go
+
+- `internal/<domain>/` — one package per product area (`auth`, `profile`): owns its routes, service, models. New area = new package + schema + `RegisterRoutes` + tests, never a placeholder dir.
+- `internal/filestore/` — upload infra behind `New(token, dir)` + `Upload(ctx, name, data)` (`Result{URL,Key,Name,Size}`); UploadThing with local fallback, `MaxUploadBytes` shared with handlers. Any domain needing uploads uses this.
+- `internal/middleware/` — global Echo stack only (Recover, RequestID, access log, CORS, metrics). Domain auth (`auth.Middleware`, `auth.ViewerID`) stays in `internal/auth` next to token verification — middleware must never import a domain.
+- `internal/platform/` — DB open/pooling/transactions; `internal/config/` — env only, returns `(*Config, error)`, `IsProd()` for prod checks.
+- `pkg/response` — HTTP helpers (`Map`, `Bind`, `Error`, `Unauthorized`, `BadRequest`, `CurrentUserID`, `UserIDKey`); `pkg/{apperror,validation,logger}` stay framework-free shared libs.
+- `ent/schema/` is the source of truth; everything else under `ent/` is generated.
+- Rules: no domain→domain imports for helpers (use `pkg/response`); one-way model reuse (`profile` builds on `auth.ToUserResponse`) is allowed, revisit at 3 domains. No empty placeholder dirs — `social/`, `ws/`, `test/integration/` were deleted for exactly this reason.
+
 ## File naming
 
-- Domain files: `<domain>_<layer>.go` snake_case — `auth_service.go`, `auth_handler.go`, `auth_model.go` (tests mirror: `auth_service_test.go`).
-- Single-purpose packages: bare name — `pkg/logger/logger.go`, `pkg/validation/validator.go`, `internal/platform/db.go`.
+- Domain files: `<domain>_<layer>.go` for model/service/handler (`auth_service.go`, `profile_model.go`), `<domain>_<topic>.go` for scoped extras (`auth_cookies.go`, `auth_request.go`) — tests mirror (`auth_service_test.go`).
+- Single-purpose packages: bare name — `pkg/logger/logger.go`, `pkg/validation/validator.go`, `internal/platform/db.go`, `internal/filestore/filestore.go`.
 
 ## Tests
 
-- testify, co-located `*_test.go` next to code (hybrid layout); `test/integration/` is an empty placeholder.
+- testify, co-located `*_test.go` next to code (hybrid layout).
 - DB tests use `enttest.Open(t, "sqlite3", "file:<name>?mode=memory&cache=shared&_fk=1")` — requires the blank `_ "github.com/mattn/go-sqlite3"` import. Use a unique `file:<name>` per test file to avoid shared-cache cross-talk.
 - Handler tests call `h.SignupEmail(e.NewContext(req, rec))` directly, not over HTTP.
 
 ## Lint (golangci-lint v2, pinned v2.11.4 — match it locally)
 
-- Config `.golangci.yml` (`version: "2"`, `default: none` + curated defect-finders; formatters `gofmt`+`goimports` with local prefix). CI (`.github/workflows/ci.yml`, `lint` + `test` jobs, main-push/PR only) runs the same version.
-- `ent/` excluded via `generated: lax` — never fix generated code, fix the schema or config instead. Test files skip `errcheck`/`gosec`.
-- `revive` demands doc comments on all exported identifiers and forbids stutter (`auth.Service`, not `auth.AuthService`). Use `errors.As`, never `err.(Type)`. `//nolint` must name the linter + reason.
+- Config `.golangci.yml` (`version: "2"`, `default: standard` + `errorlint`/`misspell`; formatters `gofmt`+`goimports` with local prefix). Barebone on purpose: no `revive`/`gocritic`/`gosec` — comments only where they explain why, style via `gofmt`. CI (`.github/workflows/ci.yml`, `lint` + `test` jobs, main-push/PR only) runs the same version.
+- `ent/` excluded via `generated: lax` — never fix generated code, fix the schema or config instead. Test files skip `errcheck`.
+- No doc-comment-per-export rule. Comment the why (reuse-revokes-all, timing guard, committed-response), not the what. Use `errors.As`, never `err.(Type)`.
 - `gofumpt` is omitted: this golangci version reports nondeterministic gofumpt findings (standalone gofumpt is clean). Re-evaluate after upgrading past v2.11.4.
 
 ## Ignored
