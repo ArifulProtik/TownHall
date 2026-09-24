@@ -37,7 +37,9 @@ type UpdateRequest struct {
 	Website   *string `json:"website,omitempty" validate:"omitempty,maxrunes=200"`
 }
 
-func (r *UpdateRequest) normalize() {
+// Normalize trims editable fields in place. response.Bind calls it between
+// binding and validation so rune rules apply to the stored values.
+func (r *UpdateRequest) Normalize() {
 	for _, f := range []*string{r.Name, r.Bio, r.AvatarURL, r.BannerURL, r.Location, r.Website} {
 		if f != nil {
 			*f = strings.TrimSpace(*f)

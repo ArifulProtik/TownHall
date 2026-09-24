@@ -45,10 +45,14 @@ func Error(c *echo.Context, err error) error {
 
 // Bind reads JSON into v and validates it, writing the 400 itself.
 // False means the response is done; the caller just returns nil.
+// A Normalize method runs between binding and validation.
 func Bind(c *echo.Context, v any) bool {
 	if err := c.Bind(v); err != nil {
 		_ = c.JSON(http.StatusBadRequest, Map{"error": "invalid request body"})
 		return false
+	}
+	if n, ok := v.(interface{ Normalize() }); ok {
+		n.Normalize()
 	}
 	if err := c.Validate(v); err != nil {
 		var ve *validation.Error

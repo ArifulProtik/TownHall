@@ -52,7 +52,6 @@ func (h *Handler) UpdateProfile(c *echo.Context) error {
 	if !response.Bind(c, &req) {
 		return nil
 	}
-	req.normalize()
 
 	u, err := h.svc.UpdateProfile(c.Request().Context(), uid, req)
 	if err != nil {
