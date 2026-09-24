@@ -65,7 +65,7 @@ export function SidebarRailItem({
 
             {/* Optional Unread / Notification Badge */}
             {badgeCount !== undefined && badgeCount > 0 && (
-              <span className="absolute -bottom-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground ring-2 ring-sidebar">
+              <span className="absolute -bottom-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-xs font-bold leading-none text-destructive-foreground ring-2 ring-sidebar">
                 {badgeCount > 99 ? '99+' : badgeCount}
               </span>
             )}

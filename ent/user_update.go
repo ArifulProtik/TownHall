@@ -139,6 +139,106 @@ func (_u *UserUpdate) SetNillableEmailVerified(v *bool) *UserUpdate {
 	return _u
 }
 
+// SetBio sets the "bio" field.
+func (_u *UserUpdate) SetBio(v string) *UserUpdate {
+	_u.mutation.SetBio(v)
+	return _u
+}
+
+// SetNillableBio sets the "bio" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableBio(v *string) *UserUpdate {
+	if v != nil {
+		_u.SetBio(*v)
+	}
+	return _u
+}
+
+// ClearBio clears the value of the "bio" field.
+func (_u *UserUpdate) ClearBio() *UserUpdate {
+	_u.mutation.ClearBio()
+	return _u
+}
+
+// SetAvatarURL sets the "avatar_url" field.
+func (_u *UserUpdate) SetAvatarURL(v string) *UserUpdate {
+	_u.mutation.SetAvatarURL(v)
+	return _u
+}
+
+// SetNillableAvatarURL sets the "avatar_url" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableAvatarURL(v *string) *UserUpdate {
+	if v != nil {
+		_u.SetAvatarURL(*v)
+	}
+	return _u
+}
+
+// ClearAvatarURL clears the value of the "avatar_url" field.
+func (_u *UserUpdate) ClearAvatarURL() *UserUpdate {
+	_u.mutation.ClearAvatarURL()
+	return _u
+}
+
+// SetBannerURL sets the "banner_url" field.
+func (_u *UserUpdate) SetBannerURL(v string) *UserUpdate {
+	_u.mutation.SetBannerURL(v)
+	return _u
+}
+
+// SetNillableBannerURL sets the "banner_url" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableBannerURL(v *string) *UserUpdate {
+	if v != nil {
+		_u.SetBannerURL(*v)
+	}
+	return _u
+}
+
+// ClearBannerURL clears the value of the "banner_url" field.
+func (_u *UserUpdate) ClearBannerURL() *UserUpdate {
+	_u.mutation.ClearBannerURL()
+	return _u
+}
+
+// SetLocation sets the "location" field.
+func (_u *UserUpdate) SetLocation(v string) *UserUpdate {
+	_u.mutation.SetLocation(v)
+	return _u
+}
+
+// SetNillableLocation sets the "location" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableLocation(v *string) *UserUpdate {
+	if v != nil {
+		_u.SetLocation(*v)
+	}
+	return _u
+}
+
+// ClearLocation clears the value of the "location" field.
+func (_u *UserUpdate) ClearLocation() *UserUpdate {
+	_u.mutation.ClearLocation()
+	return _u
+}
+
+// SetWebsite sets the "website" field.
+func (_u *UserUpdate) SetWebsite(v string) *UserUpdate {
+	_u.mutation.SetWebsite(v)
+	return _u
+}
+
+// SetNillableWebsite sets the "website" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableWebsite(v *string) *UserUpdate {
+	if v != nil {
+		_u.SetWebsite(*v)
+	}
+	return _u
+}
+
+// ClearWebsite clears the value of the "website" field.
+func (_u *UserUpdate) ClearWebsite() *UserUpdate {
+	_u.mutation.ClearWebsite()
+	return _u
+}
+
 // AddRefreshTokenIDs adds the "refresh_tokens" edge to the RefreshToken entity by IDs.
 func (_u *UserUpdate) AddRefreshTokenIDs(ids ...string) *UserUpdate {
 	_u.mutation.AddRefreshTokenIDs(ids...)
@@ -238,6 +338,31 @@ func (_u *UserUpdate) check() error {
 			return &ValidationError{Name: "provider", err: fmt.Errorf(`ent: validator failed for field "User.provider": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Bio(); ok {
+		if err := user.BioValidator(v); err != nil {
+			return &ValidationError{Name: "bio", err: fmt.Errorf(`ent: validator failed for field "User.bio": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.AvatarURL(); ok {
+		if err := user.AvatarURLValidator(v); err != nil {
+			return &ValidationError{Name: "avatar_url", err: fmt.Errorf(`ent: validator failed for field "User.avatar_url": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.BannerURL(); ok {
+		if err := user.BannerURLValidator(v); err != nil {
+			return &ValidationError{Name: "banner_url", err: fmt.Errorf(`ent: validator failed for field "User.banner_url": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.Location(); ok {
+		if err := user.LocationValidator(v); err != nil {
+			return &ValidationError{Name: "location", err: fmt.Errorf(`ent: validator failed for field "User.location": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.Website(); ok {
+		if err := user.WebsiteValidator(v); err != nil {
+			return &ValidationError{Name: "website", err: fmt.Errorf(`ent: validator failed for field "User.website": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -279,6 +404,36 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.EmailVerified(); ok {
 		_spec.SetField(user.FieldEmailVerified, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.Bio(); ok {
+		_spec.SetField(user.FieldBio, field.TypeString, value)
+	}
+	if _u.mutation.BioCleared() {
+		_spec.ClearField(user.FieldBio, field.TypeString)
+	}
+	if value, ok := _u.mutation.AvatarURL(); ok {
+		_spec.SetField(user.FieldAvatarURL, field.TypeString, value)
+	}
+	if _u.mutation.AvatarURLCleared() {
+		_spec.ClearField(user.FieldAvatarURL, field.TypeString)
+	}
+	if value, ok := _u.mutation.BannerURL(); ok {
+		_spec.SetField(user.FieldBannerURL, field.TypeString, value)
+	}
+	if _u.mutation.BannerURLCleared() {
+		_spec.ClearField(user.FieldBannerURL, field.TypeString)
+	}
+	if value, ok := _u.mutation.Location(); ok {
+		_spec.SetField(user.FieldLocation, field.TypeString, value)
+	}
+	if _u.mutation.LocationCleared() {
+		_spec.ClearField(user.FieldLocation, field.TypeString)
+	}
+	if value, ok := _u.mutation.Website(); ok {
+		_spec.SetField(user.FieldWebsite, field.TypeString, value)
+	}
+	if _u.mutation.WebsiteCleared() {
+		_spec.ClearField(user.FieldWebsite, field.TypeString)
 	}
 	if _u.mutation.RefreshTokensCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -455,6 +610,106 @@ func (_u *UserUpdateOne) SetNillableEmailVerified(v *bool) *UserUpdateOne {
 	return _u
 }
 
+// SetBio sets the "bio" field.
+func (_u *UserUpdateOne) SetBio(v string) *UserUpdateOne {
+	_u.mutation.SetBio(v)
+	return _u
+}
+
+// SetNillableBio sets the "bio" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableBio(v *string) *UserUpdateOne {
+	if v != nil {
+		_u.SetBio(*v)
+	}
+	return _u
+}
+
+// ClearBio clears the value of the "bio" field.
+func (_u *UserUpdateOne) ClearBio() *UserUpdateOne {
+	_u.mutation.ClearBio()
+	return _u
+}
+
+// SetAvatarURL sets the "avatar_url" field.
+func (_u *UserUpdateOne) SetAvatarURL(v string) *UserUpdateOne {
+	_u.mutation.SetAvatarURL(v)
+	return _u
+}
+
+// SetNillableAvatarURL sets the "avatar_url" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableAvatarURL(v *string) *UserUpdateOne {
+	if v != nil {
+		_u.SetAvatarURL(*v)
+	}
+	return _u
+}
+
+// ClearAvatarURL clears the value of the "avatar_url" field.
+func (_u *UserUpdateOne) ClearAvatarURL() *UserUpdateOne {
+	_u.mutation.ClearAvatarURL()
+	return _u
+}
+
+// SetBannerURL sets the "banner_url" field.
+func (_u *UserUpdateOne) SetBannerURL(v string) *UserUpdateOne {
+	_u.mutation.SetBannerURL(v)
+	return _u
+}
+
+// SetNillableBannerURL sets the "banner_url" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableBannerURL(v *string) *UserUpdateOne {
+	if v != nil {
+		_u.SetBannerURL(*v)
+	}
+	return _u
+}
+
+// ClearBannerURL clears the value of the "banner_url" field.
+func (_u *UserUpdateOne) ClearBannerURL() *UserUpdateOne {
+	_u.mutation.ClearBannerURL()
+	return _u
+}
+
+// SetLocation sets the "location" field.
+func (_u *UserUpdateOne) SetLocation(v string) *UserUpdateOne {
+	_u.mutation.SetLocation(v)
+	return _u
+}
+
+// SetNillableLocation sets the "location" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableLocation(v *string) *UserUpdateOne {
+	if v != nil {
+		_u.SetLocation(*v)
+	}
+	return _u
+}
+
+// ClearLocation clears the value of the "location" field.
+func (_u *UserUpdateOne) ClearLocation() *UserUpdateOne {
+	_u.mutation.ClearLocation()
+	return _u
+}
+
+// SetWebsite sets the "website" field.
+func (_u *UserUpdateOne) SetWebsite(v string) *UserUpdateOne {
+	_u.mutation.SetWebsite(v)
+	return _u
+}
+
+// SetNillableWebsite sets the "website" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableWebsite(v *string) *UserUpdateOne {
+	if v != nil {
+		_u.SetWebsite(*v)
+	}
+	return _u
+}
+
+// ClearWebsite clears the value of the "website" field.
+func (_u *UserUpdateOne) ClearWebsite() *UserUpdateOne {
+	_u.mutation.ClearWebsite()
+	return _u
+}
+
 // AddRefreshTokenIDs adds the "refresh_tokens" edge to the RefreshToken entity by IDs.
 func (_u *UserUpdateOne) AddRefreshTokenIDs(ids ...string) *UserUpdateOne {
 	_u.mutation.AddRefreshTokenIDs(ids...)
@@ -567,6 +822,31 @@ func (_u *UserUpdateOne) check() error {
 			return &ValidationError{Name: "provider", err: fmt.Errorf(`ent: validator failed for field "User.provider": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Bio(); ok {
+		if err := user.BioValidator(v); err != nil {
+			return &ValidationError{Name: "bio", err: fmt.Errorf(`ent: validator failed for field "User.bio": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.AvatarURL(); ok {
+		if err := user.AvatarURLValidator(v); err != nil {
+			return &ValidationError{Name: "avatar_url", err: fmt.Errorf(`ent: validator failed for field "User.avatar_url": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.BannerURL(); ok {
+		if err := user.BannerURLValidator(v); err != nil {
+			return &ValidationError{Name: "banner_url", err: fmt.Errorf(`ent: validator failed for field "User.banner_url": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.Location(); ok {
+		if err := user.LocationValidator(v); err != nil {
+			return &ValidationError{Name: "location", err: fmt.Errorf(`ent: validator failed for field "User.location": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.Website(); ok {
+		if err := user.WebsiteValidator(v); err != nil {
+			return &ValidationError{Name: "website", err: fmt.Errorf(`ent: validator failed for field "User.website": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -625,6 +905,36 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 	}
 	if value, ok := _u.mutation.EmailVerified(); ok {
 		_spec.SetField(user.FieldEmailVerified, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.Bio(); ok {
+		_spec.SetField(user.FieldBio, field.TypeString, value)
+	}
+	if _u.mutation.BioCleared() {
+		_spec.ClearField(user.FieldBio, field.TypeString)
+	}
+	if value, ok := _u.mutation.AvatarURL(); ok {
+		_spec.SetField(user.FieldAvatarURL, field.TypeString, value)
+	}
+	if _u.mutation.AvatarURLCleared() {
+		_spec.ClearField(user.FieldAvatarURL, field.TypeString)
+	}
+	if value, ok := _u.mutation.BannerURL(); ok {
+		_spec.SetField(user.FieldBannerURL, field.TypeString, value)
+	}
+	if _u.mutation.BannerURLCleared() {
+		_spec.ClearField(user.FieldBannerURL, field.TypeString)
+	}
+	if value, ok := _u.mutation.Location(); ok {
+		_spec.SetField(user.FieldLocation, field.TypeString, value)
+	}
+	if _u.mutation.LocationCleared() {
+		_spec.ClearField(user.FieldLocation, field.TypeString)
+	}
+	if value, ok := _u.mutation.Website(); ok {
+		_spec.SetField(user.FieldWebsite, field.TypeString, value)
+	}
+	if _u.mutation.WebsiteCleared() {
+		_spec.ClearField(user.FieldWebsite, field.TypeString)
 	}
 	if _u.mutation.RefreshTokensCleared() {
 		edge := &sqlgraph.EdgeSpec{

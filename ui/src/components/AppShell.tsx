@@ -1,16 +1,32 @@
-import { NavLink, Outlet } from 'react-router';
+import { NavLink, Outlet, useMatches } from 'react-router';
 import { TopAppBar } from '@/components/TopAppBar';
 import { PrimarySidebar } from '@/components/PrimarySidebar';
 import { House, ChatCircleDots, Compass, User } from '@phosphor-icons/react';
+import { useGetMeQuery } from '@/features/auth/authApi';
 
-const mobileNavItems = [
-  { to: '/', label: 'Home', icon: <House className="size-5" /> },
-  { to: '/dms', label: 'DMs', icon: <ChatCircleDots className="size-5" /> },
-  { to: '/spaces', label: 'Spaces', icon: <Compass className="size-5" /> },
-  { to: '/u/joe', label: 'Profile', icon: <User className="size-5" /> },
-];
+interface RouteHandle {
+  subtitle?: string;
+}
 
 export function AppShell() {
+  const { data: user } = useGetMeQuery();
+  const matches = useMatches();
+  const profileHandle = user?.username || 'me';
+
+  // Deepest route with a subtitle handle wins (e.g. Settings).
+  const subtitle = [...matches]
+    .reverse()
+    .find((m) => (m.handle as RouteHandle | undefined)?.subtitle)?.handle as
+    | RouteHandle
+    | undefined;
+
+  const mobileNavItems = [
+    { to: '/', label: 'Home', icon: <House className="size-5" /> },
+    { to: '/dms', label: 'DMs', icon: <ChatCircleDots className="size-5" /> },
+    { to: '/spaces', label: 'Spaces', icon: <Compass className="size-5" /> },
+    { to: `/u/${profileHandle}`, label: 'Profile', icon: <User className="size-5" /> },
+  ];
+
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
       {/* Desktop Discord-style Primary Sidebar */}
@@ -18,7 +34,7 @@ export function AppShell() {
 
       {/* Main Content Area */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopAppBar />
+        <TopAppBar subtitle={subtitle?.subtitle} />
         <div className="flex-1 overflow-y-auto p-4">
           <Outlet />
         </div>

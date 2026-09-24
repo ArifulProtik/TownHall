@@ -25,16 +25,18 @@
 - Handler signature is `func (h *X) Y(c *echo.Context) error` — pointer context.
 - Always set `e.Validator = validation.New()` (`pkg/validation`, validator/v10 wrapper).
 - No `e.Shutdown` / `e.Start` for graceful shutdown — use `echo.StartConfig{Address, GracefulTimeout}.Start(sigCtx, e)` with `signal.NotifyContext` (see `cmd/api/main.go`).
+- Routing standard: Scoped route groups (`public` vs `protected := api.Group("", auth.Middleware(secret))`). Domain handlers implement `RegisterRoutes(public, protected *echo.Group)`. Never use global auth middleware with hardcoded URL path maps.
 
 ## Ent + Postgres
 
 - Schemas live in `ent/schema/`; everything else under `ent/` is generated — never hand-edit.
 - `internal/platform/db.go`: opens with pgx stdlib (`sql.Open("pgx", url)`, `dialect.Postgres`). `AutoMigrate` uses `WithDropIndex/WithDropColumn` and is gated to `APP_ENV=development` in `main.go` — never call it in prod paths.
-- Note typo'd filename: config lives in `internal/config/conifg.go`. Don't create a second `config.go`.
+- Connection pooling: configured in `platform.Open` with explicit max open/idle connections and lifetime. Multi-entity transactions use `platform.WithTx(ctx, client, func(tx *ent.Tx) error)`.
+- Configuration lives in `internal/config/config.go`. Loaded via `config.New()`.
 
 ## Auth pattern
 
-- `internal/auth/`: `auth_model.go` (request/response + `validate` tags) → `auth_service.go` (`NewService(cfg, db, log)` holds `*ent.Client` directly, no repo layer) → `auth_handler.go` (bind → validate → service, maps `apperror.AppError` to status).
+- `internal/auth/`: `auth_model.go` (request/response + `validate` tags) → `auth_service.go` (`NewService(cfg, db, log)` holds `*ent.Client` directly, no repo layer) → `auth_handler.go` (bind → validate → service, maps `apperror.AppError` to status). Handlers mount public/protected endpoints via `RegisterRoutes(public, protected)`.
 - Passwords: bcrypt, `max=72` in the validate tag is the bcrypt limit — keep it. Never return the hash; use `ToUserResponse`.
 - Duplicate email/username surfaces as `ent.IsConstraintError` → 409.
 
@@ -80,7 +82,9 @@
 
 - Commands (run in `ui/`): `bun run dev` (vite `:5173`, `/api` proxied to `:8080`) / `bun run build` (`tsc -b && vite build`) / `bun run lint` / `bun run typecheck`.
 - Finish gate (UI tasks): `bun run typecheck` + `bun run lint` + `bun run build`, all green. Backend `make check`/`make build` unaffected (no backend changes in UI tasks).
-- Structure: feature folders — `src/features/<feature>/` (`authApi.ts`, `authSlice.ts`, `*Page.tsx`, `RequireAuth.tsx`); shared `src/app/` (store, router, hooks), `src/lib/`, `src/components/`, `src/pages/`.
+- Structure: feature folders — `src/features/<feature>/` (`components/`, `*Api.ts`, `*Slice.ts`, `*Page.tsx`); shared `src/app/` (store, router, hooks), `src/lib/`, `src/components/`. All domain page views live inside their respective feature folder (e.g. `src/features/messages/MessagesPage.tsx`).
 - Naming: components/pages PascalCase matching the default export (`LoginPage.tsx`); hooks `use*.ts`; slices/apis/store camelCase (`authSlice.ts`); no barrel `index.ts` re-exports — import directly via `@/` alias (`tsconfig.app.json` paths + `vite.config.ts` resolve.alias).
+- RTK Query: single central `baseApi` in `src/lib/baseApi.ts` (`reducerPath: 'api'`) with shared `tagTypes`. Features inject endpoints via `baseApi.injectEndpoints({ ... })`. `store.ts` only ever mounts `baseApi.reducer` and `baseApi.middleware`.
+- Route code-splitting: Route page components in `src/app/router.tsx` must be loaded dynamically via `React.lazy()` with `<Suspense fallback={<PageLoadingSkeleton />}>` to keep the main bundle under 400 kB.
 - Auth rules: access token lives in Redux memory only — never `localStorage`/`sessionStorage`, never logged; refresh travels by HttpOnly cookie (`credentials: "include"`); 401s funnel through `baseQueryWithReauth` (refresh-then-retry-once, else `clearCredentials`).
-- Backend contract mirror: TS types in `authApi.ts` must match `internal/auth/auth_model.go` JSON tags exactly (`access_token`, `expires_in`, `email_verified`, …). Changing the Go contract means updating the TS types in the same task.
+- Backend contract mirror: TS types in `*Api.ts` must match Go model JSON tags exactly (`access_token`, `expires_in`, `email_verified`, …). Changing the Go contract means updating the TS types in the same task.

@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Popover } from '@base-ui/react/popover';
-import { User, SignOut, Moon, Sun } from '@phosphor-icons/react';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { User, SignOut, Moon, Sun, Gear } from '@phosphor-icons/react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { resolveMediaUrl } from '@/lib/media';
 import { Separator } from '@/components/ui/separator';
 import { useTheme } from '@/components/ThemeToggle';
 import { authApi, useLogoutMutation, useGetMeQuery } from '@/features/auth/authApi';
@@ -44,7 +45,7 @@ export function UserMenuPopover() {
     : user?.email
       ? `@${user.email.split('@')[0]}`
       : '@member';
-  const profileHandle = user?.username || 'joe';
+  const profileHandle = user?.username || 'me';
 
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
@@ -54,6 +55,9 @@ export function UserMenuPopover() {
         className="group relative flex size-12 cursor-pointer items-center justify-center rounded-full transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring hover:scale-105"
       >
         <Avatar className="size-10 border border-sidebar-border bg-sidebar-accent">
+          {user?.avatar_url && (
+            <AvatarImage src={resolveMediaUrl(user.avatar_url)} alt={displayName} />
+          )}
           <AvatarFallback className="text-sm font-semibold text-foreground">
             {initials}
           </AvatarFallback>
@@ -71,6 +75,9 @@ export function UserMenuPopover() {
             {/* User Details Header */}
             <div className="flex items-center gap-3 p-2">
               <Avatar className="size-9 bg-primary/10">
+                {user?.avatar_url && (
+                  <AvatarImage src={resolveMediaUrl(user.avatar_url)} alt={displayName} />
+                )}
                 <AvatarFallback className="text-xs font-semibold text-primary">
                   {initials}
                 </AvatarFallback>
@@ -91,6 +98,16 @@ export function UserMenuPopover() {
             >
               <User className="size-4 shrink-0 text-muted-foreground" />
               <span>My Profile</span>
+            </Link>
+
+            {/* Settings Navigation */}
+            <Link
+              to="/settings"
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              <Gear className="size-4 shrink-0 text-muted-foreground" />
+              <span>Settings</span>
             </Link>
 
             {/* Theme Toggle Item - Consistent row layout and height */}

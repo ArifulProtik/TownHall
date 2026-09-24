@@ -13,6 +13,7 @@ import (
 	"ArifulProtik/TownHall/internal/auth"
 	"ArifulProtik/TownHall/internal/config"
 	"ArifulProtik/TownHall/internal/platform"
+	"ArifulProtik/TownHall/internal/profile"
 	"ArifulProtik/TownHall/pkg/logger"
 	"ArifulProtik/TownHall/pkg/validation"
 
@@ -59,14 +60,21 @@ func run() error {
 	// handler — otherwise they bypass it as JSON.
 	e.Logger = log
 	appmiddleware.Register(e, log)
-	// Global auth enforcement: everything except signup/login/refresh/health/metrics.
-	e.Use(auth.Middleware(cfg.JWTSecret))
 
 	authSvc := auth.NewService(cfg, entClient, log)
 	authHandler := auth.NewHandler(authSvc, log)
 
+	profileSvc := profile.NewService(cfg, entClient, log)
+	profileHandler := profile.NewHandler(profileSvc, cfg.JWTSecret, log)
+
+	e.Static("/uploads", "./uploads")
+
 	api := e.Group("/api/v1")
-	authHandler.RegisterRoutes(api.Group("/auth"))
+	public := api.Group("")
+	protected := api.Group("", auth.Middleware(cfg.JWTSecret))
+
+	authHandler.RegisterRoutes(public, protected)
+	profileHandler.RegisterRoutes(public, protected)
 
 	sigCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

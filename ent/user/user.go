@@ -31,6 +31,16 @@ const (
 	FieldProvider = "provider"
 	// FieldEmailVerified holds the string denoting the email_verified field in the database.
 	FieldEmailVerified = "email_verified"
+	// FieldBio holds the string denoting the bio field in the database.
+	FieldBio = "bio"
+	// FieldAvatarURL holds the string denoting the avatar_url field in the database.
+	FieldAvatarURL = "avatar_url"
+	// FieldBannerURL holds the string denoting the banner_url field in the database.
+	FieldBannerURL = "banner_url"
+	// FieldLocation holds the string denoting the location field in the database.
+	FieldLocation = "location"
+	// FieldWebsite holds the string denoting the website field in the database.
+	FieldWebsite = "website"
 	// EdgeRefreshTokens holds the string denoting the refresh_tokens edge name in mutations.
 	EdgeRefreshTokens = "refresh_tokens"
 	// Table holds the table name of the user in the database.
@@ -55,6 +65,11 @@ var Columns = []string{
 	FieldUsername,
 	FieldProvider,
 	FieldEmailVerified,
+	FieldBio,
+	FieldAvatarURL,
+	FieldBannerURL,
+	FieldLocation,
+	FieldWebsite,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -82,6 +97,16 @@ var (
 	PasswordValidator func(string) error
 	// DefaultEmailVerified holds the default value on creation for the "email_verified" field.
 	DefaultEmailVerified bool
+	// BioValidator is a validator for the "bio" field. It is called by the builders before save.
+	BioValidator func(string) error
+	// AvatarURLValidator is a validator for the "avatar_url" field. It is called by the builders before save.
+	AvatarURLValidator func(string) error
+	// BannerURLValidator is a validator for the "banner_url" field. It is called by the builders before save.
+	BannerURLValidator func(string) error
+	// LocationValidator is a validator for the "location" field. It is called by the builders before save.
+	LocationValidator func(string) error
+	// WebsiteValidator is a validator for the "website" field. It is called by the builders before save.
+	WebsiteValidator func(string) error
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() string
 	// IDValidator is a validator for the "id" field. It is called by the builders before save.
@@ -161,6 +186,31 @@ func ByProvider(opts ...sql.OrderTermOption) OrderOption {
 // ByEmailVerified orders the results by the email_verified field.
 func ByEmailVerified(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldEmailVerified, opts...).ToFunc()
+}
+
+// ByBio orders the results by the bio field.
+func ByBio(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBio, opts...).ToFunc()
+}
+
+// ByAvatarURL orders the results by the avatar_url field.
+func ByAvatarURL(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAvatarURL, opts...).ToFunc()
+}
+
+// ByBannerURL orders the results by the banner_url field.
+func ByBannerURL(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBannerURL, opts...).ToFunc()
+}
+
+// ByLocation orders the results by the location field.
+func ByLocation(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLocation, opts...).ToFunc()
+}
+
+// ByWebsite orders the results by the website field.
+func ByWebsite(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldWebsite, opts...).ToFunc()
 }
 
 // ByRefreshTokensCount orders the results by refresh_tokens count.

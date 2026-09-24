@@ -316,3 +316,40 @@ func (s *Service) SetupUsername(ctx context.Context, userID, rawUsername string)
 	}
 	return u, nil
 }
+
+// ChangePassword verifies the current password and updates it to the new password.
+func (s *Service) ChangePassword(ctx context.Context, userID, currentPassword, newPassword string) error {
+	log := logger.WithContext(ctx, s.log)
+	u, err := s.db.User.Get(ctx, userID)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return apperror.NotFound("user not found")
+		}
+		log.Error("change password: get user failed", slog.Any("error", err))
+		return apperror.Internal()
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(currentPassword)); err != nil {
+		log.Warn("change password: invalid current password", slog.String("user_id", userID))
+		return apperror.New(http.StatusBadRequest, "invalid_password", "current password does not match")
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), BcryptCost)
+	if err != nil {
+		log.Error("change password: hash failed", slog.Any("error", err))
+		return apperror.Internal()
+	}
+
+	if err := s.db.User.UpdateOneID(userID).SetPassword(string(hash)).Exec(ctx); err != nil {
+		log.Error("change password: update failed", slog.Any("error", err))
+		return apperror.Internal()
+	}
+
+	// A password change must invalidate existing sessions: revoke every
+	// refresh token, including tokens minted before the change.
+	if err := s.LogoutAll(ctx, userID); err != nil {
+		log.Error("change password: revoke sessions failed", slog.Any("error", err))
+		return apperror.Internal()
+	}
+	return nil
+}

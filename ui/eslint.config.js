@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
 
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules', 'coverage'] },
+  { ignores: ['dist/**', '**/dist/**', 'node_modules/**', '**/node_modules/**', 'coverage/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   reactHooks.configs.flat['recommended-latest'],
@@ -21,7 +21,13 @@ export default tseslint.config(
     },
   },
   {
-    files: ['src/components/ui/**'],
+    files: ['**/components/ui/**', '**/router.tsx', '**/*.tsx'],
+    rules: {
+      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+    },
+  },
+  {
+    files: ['**/components/ui/**', '**/router.tsx'],
     rules: {
       'react-refresh/only-export-components': 'off',
     },

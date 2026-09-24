@@ -1,5 +1,4 @@
-import { createApi } from '@reduxjs/toolkit/query/react';
-import { baseQueryWithReauth } from '@/lib/baseApi';
+import { baseApi } from '@/lib/baseApi';
 import { setCredentials } from '@/features/auth/authSlice';
 
 export interface UserResponse {
@@ -9,7 +8,17 @@ export interface UserResponse {
   username?: string | null;
   provider: string;
   email_verified: boolean;
+  bio?: string;
+  avatar_url?: string;
+  banner_url?: string;
+  location?: string;
+  website?: string;
   created_at: string;
+}
+
+export interface ChangePasswordRequest {
+  current_password: string;
+  new_password: string;
 }
 
 export interface TokenResponse {
@@ -47,9 +56,7 @@ export interface SetupUsernameRequest {
   username: string;
 }
 
-export const authApi = createApi({
-  reducerPath: 'authApi',
-  baseQuery: baseQueryWithReauth,
+export const authApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
     signup: build.mutation<UserResponse, SignupRequest>({
       query: (body) => ({ url: '/auth/signup', method: 'POST', body }),
@@ -84,12 +91,20 @@ export const authApi = createApi({
     }),
     getMe: build.query<UserResponse, void>({
       query: () => ({ url: '/auth/me', method: 'GET' }),
+      providesTags: ['User'],
     }),
     checkUsername: build.query<CheckUsernameResponse, string>({
       query: (username) => ({
         url: `/auth/check-username?username=${encodeURIComponent(username)}`,
         method: 'GET',
       }),
+    }),
+    changePassword: build.mutation<StatusResponse, ChangePasswordRequest>({
+      query: (body) => ({ url: '/auth/password', method: 'PUT', body }),
+    }),
+    updateUsername: build.mutation<UserResponse, SetupUsernameRequest>({
+      query: (body) => ({ url: '/auth/username', method: 'PUT', body }),
+      invalidatesTags: ['User'],
     }),
     setupUsername: build.mutation<UserResponse, SetupUsernameRequest>({
       query: (body) => ({ url: '/auth/onboarding', method: 'POST', body }),
@@ -105,6 +120,7 @@ export const authApi = createApi({
       },
     }),
   }),
+  overrideExisting: false,
 });
 
 export const {
@@ -116,5 +132,7 @@ export const {
   useGetMeQuery,
   useCheckUsernameQuery,
   useSetupUsernameMutation,
+  useUpdateUsernameMutation,
+  useChangePasswordMutation,
 } = authApi;
 

@@ -370,3 +370,70 @@ func TestSetupUsernameHandler(t *testing.T) {
 	require.NoError(t, h.SetupUsername(cDup))
 	assert.Equal(t, http.StatusConflict, recDup.Code)
 }
+
+func TestRegisterRoutes_PublicAndProtected(t *testing.T) {
+	e, h, _ := newTestHandler(t)
+
+	api := e.Group("/api/v1")
+	public := api.Group("")
+	protected := api.Group("", Middleware(h.svc.config.JWTSecret))
+	h.RegisterRoutes(public, protected)
+
+	// Public endpoint /health should return 200 without Authorization header
+	reqHealth := httptest.NewRequest(http.MethodGet, "/api/v1/auth/health", nil)
+	recHealth := httptest.NewRecorder()
+	e.ServeHTTP(recHealth, reqHealth)
+	assert.Equal(t, http.StatusOK, recHealth.Code)
+
+	// Protected endpoint /me should return 401 without Authorization header
+	reqMe := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
+	recMe := httptest.NewRecorder()
+	e.ServeHTTP(recMe, reqMe)
+	assert.Equal(t, http.StatusUnauthorized, recMe.Code)
+}
+
+func TestChangePasswordHandler(t *testing.T) {
+	e, h, _ := newTestHandler(t)
+	signupRec := doSignup(t, e, h, `{"name":"PassUser","email":"passchange@example.com","password":"oldpassword123"}`)
+	require.Equal(t, http.StatusCreated, signupRec.Code)
+
+	var u map[string]any
+	require.NoError(t, json.Unmarshal(signupRec.Body.Bytes(), &u))
+	uid, _ := u["id"].(string)
+	require.NotEmpty(t, uid)
+
+	// 1. Unauthenticated -> 401
+	reqAnon := httptest.NewRequest(http.MethodPut, "/api/v1/auth/password", strings.NewReader(`{"current_password":"oldpassword123","new_password":"newpassword123"}`))
+	reqAnon.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	recAnon := httptest.NewRecorder()
+	cAnon := e.NewContext(reqAnon, recAnon)
+	require.NoError(t, h.ChangePassword(cAnon))
+	assert.Equal(t, http.StatusUnauthorized, recAnon.Code)
+
+	// 2. Invalid validation (too short) -> 400
+	reqInvalid := httptest.NewRequest(http.MethodPut, "/api/v1/auth/password", strings.NewReader(`{"current_password":"old","new_password":"short"}`))
+	reqInvalid.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	recInvalid := httptest.NewRecorder()
+	cInvalid := e.NewContext(reqInvalid, recInvalid)
+	cInvalid.Set(UserIDKey, uid)
+	require.NoError(t, h.ChangePassword(cInvalid))
+	assert.Equal(t, http.StatusBadRequest, recInvalid.Code)
+
+	// 3. Wrong current password -> 400
+	reqWrong := httptest.NewRequest(http.MethodPut, "/api/v1/auth/password", strings.NewReader(`{"current_password":"wrongpassword123","new_password":"newpassword123"}`))
+	reqWrong.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	recWrong := httptest.NewRecorder()
+	cWrong := e.NewContext(reqWrong, recWrong)
+	cWrong.Set(UserIDKey, uid)
+	require.NoError(t, h.ChangePassword(cWrong))
+	assert.Equal(t, http.StatusBadRequest, recWrong.Code)
+
+	// 4. Success -> 200
+	reqOk := httptest.NewRequest(http.MethodPut, "/api/v1/auth/password", strings.NewReader(`{"current_password":"oldpassword123","new_password":"newpassword123"}`))
+	reqOk.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	recOk := httptest.NewRecorder()
+	cOk := e.NewContext(reqOk, recOk)
+	cOk.Set(UserIDKey, uid)
+	require.NoError(t, h.ChangePassword(cOk))
+	assert.Equal(t, http.StatusOK, recOk.Code)
+}

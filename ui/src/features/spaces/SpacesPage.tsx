@@ -6,7 +6,7 @@ import { mockSpaces } from '@/features/spaces/mocks';
 export default function SpacesPage() {
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-medium text-foreground">Your spaces</h2>
+      <h2 className="text-xl font-extrabold text-foreground">Your spaces</h2>
       <div className="grid gap-4 sm:grid-cols-2">
         {mockSpaces.map((space) => (
           <Card key={space.id}>

@@ -1,17 +1,29 @@
+import { lazy, Suspense, type ComponentType } from 'react';
 import { createBrowserRouter, type RouteObject } from 'react-router';
 import App from '@/App';
-import HomePage from '@/pages/HomePage';
-import LoginPage from '@/features/auth/LoginPage';
-import SignupPage from '@/features/auth/SignupPage';
 import { AuthLayout } from '@/features/auth/AuthLayout';
 import { RequireAuth } from '@/features/auth/RequireAuth';
 import { RequireGuest } from '@/features/auth/RequireGuest';
 import { AppShell } from '@/components/AppShell';
-import SpacesPage from '@/features/spaces/SpacesPage';
-import FeedPage from '@/features/feed/FeedPage';
-import ProfilePage from '@/features/profile/ProfilePage';
-import DirectMessagesPage from '@/pages/DirectMessagesPage';
-import OnboardingPage from '@/features/auth/OnboardingPage';
+import { PageLoadingSkeleton } from '@/components/ui/PageLoadingSkeleton';
+
+const HomePage = lazy(() => import('@/pages/HomePage'));
+const LoginPage = lazy(() => import('@/features/auth/LoginPage'));
+const SignupPage = lazy(() => import('@/features/auth/SignupPage'));
+const OnboardingPage = lazy(() => import('@/features/auth/OnboardingPage'));
+const SpacesPage = lazy(() => import('@/features/spaces/SpacesPage'));
+const FeedPage = lazy(() => import('@/features/feed/FeedPage'));
+const ProfilePage = lazy(() => import('@/features/profile/ProfilePage'));
+const MessagesPage = lazy(() => import('@/features/messages/MessagesPage'));
+const SettingsPage = lazy(() => import('@/features/settings/SettingsPage'));
+
+function withSuspense(Component: ComponentType) {
+  return (
+    <Suspense fallback={<PageLoadingSkeleton />}>
+      <Component />
+    </Suspense>
+  );
+}
 
 export const routes: RouteObject[] = [
   {
@@ -25,11 +37,12 @@ export const routes: RouteObject[] = [
           </RequireAuth>
         ),
         children: [
-          { index: true, element: <HomePage /> },
-          { path: 'dms', element: <DirectMessagesPage /> },
-          { path: 'spaces', element: <SpacesPage /> },
-          { path: 'feed', element: <FeedPage /> },
-          { path: 'u/:handle', element: <ProfilePage /> },
+          { index: true, element: withSuspense(HomePage) },
+          { path: 'dms', element: withSuspense(MessagesPage) },
+          { path: 'spaces', element: withSuspense(SpacesPage) },
+          { path: 'feed', element: withSuspense(FeedPage) },
+          { path: 'u/:handle', element: withSuspense(ProfilePage) },
+          { path: 'settings', element: withSuspense(SettingsPage), handle: { subtitle: 'Manage your account preferences, profile information, and security.' } },
         ],
       },
       {
@@ -38,7 +51,7 @@ export const routes: RouteObject[] = [
             <AuthLayout />
           </RequireAuth>
         ),
-        children: [{ path: 'onboarding', element: <OnboardingPage /> }],
+        children: [{ path: 'onboarding', element: withSuspense(OnboardingPage) }],
       },
       {
         element: (
@@ -47,8 +60,8 @@ export const routes: RouteObject[] = [
           </RequireGuest>
         ),
         children: [
-          { path: 'login', element: <LoginPage /> },
-          { path: 'signup', element: <SignupPage /> },
+          { path: 'login', element: withSuspense(LoginPage) },
+          { path: 'signup', element: withSuspense(SignupPage) },
         ],
       },
     ],

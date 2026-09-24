@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"ArifulProtik/TownHall/pkg/apperror"
 	"ArifulProtik/TownHall/pkg/logger"
 	"ArifulProtik/TownHall/pkg/response"
 	"ArifulProtik/TownHall/pkg/validation"
@@ -23,23 +22,22 @@ type Handler struct {
 	log *slog.Logger
 }
 
-// RegisterRoutes mounts the auth endpoints on e.
-func (h *Handler) RegisterRoutes(e *echo.Group) {
-	e.GET("/health", h.HealthCheck)
-	e.POST("/signup", h.SignupEmail)
-	e.POST("/login", h.Login)
-	e.POST("/refresh", h.Refresh)
-	protected := e.Group("", h.AuthMiddleware())
-	protected.GET("/me", h.Me)
-	protected.GET("/check-username", h.CheckUsername)
-	protected.POST("/onboarding", h.SetupUsername)
-	protected.POST("/logout", h.Logout)
-	protected.POST("/logout-all", h.LogoutAll)
-}
+// RegisterRoutes mounts the auth endpoints on the public and protected groups.
+func (h *Handler) RegisterRoutes(public *echo.Group, protected *echo.Group) {
+	authPublic := public.Group("/auth")
+	authPublic.GET("/health", h.HealthCheck)
+	authPublic.POST("/signup", h.SignupEmail)
+	authPublic.POST("/login", h.Login)
+	authPublic.POST("/refresh", h.Refresh)
 
-// AuthMiddleware validates Bearer tokens for the protected auth routes.
-func (h *Handler) AuthMiddleware() echo.MiddlewareFunc {
-	return Middleware(h.svc.config.JWTSecret)
+	authProtected := protected.Group("/auth")
+	authProtected.GET("/me", h.Me)
+	authProtected.GET("/check-username", h.CheckUsername)
+	authProtected.POST("/onboarding", h.SetupUsername)
+	authProtected.PUT("/username", h.SetupUsername)
+	authProtected.PUT("/password", h.ChangePassword)
+	authProtected.POST("/logout", h.Logout)
+	authProtected.POST("/logout-all", h.LogoutAll)
 }
 
 // NewHandler builds an Handler around svc.
@@ -78,17 +76,7 @@ func (h *Handler) SignupEmail(c *echo.Context) error {
 	ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
 	u, err := h.svc.SignupEmail(ctx, req)
 	if err != nil {
-		var app *apperror.AppError
-		if errors.As(err, &app) {
-			if app.Status >= 500 {
-				log.Error("signup: service error", slog.Any("error", err))
-			} else {
-				log.Warn("signup: rejected", slog.Int("status", app.Status), slog.String("code", app.Code))
-			}
-			return c.JSON(app.Status, response.Map{"error": app.Message, "code": app.Code})
-		}
-		log.Error("signup: unexpected error", slog.Any("error", err))
-		return c.JSON(http.StatusInternalServerError, response.Map{"error": "internal server error"})
+		return response.Error(c, log, err, "signup")
 	}
 	return c.JSON(http.StatusCreated, ToUserResponse(u))
 }
@@ -125,17 +113,7 @@ func (h *Handler) Login(c *echo.Context) error {
 	ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
 	pair, err := h.svc.Login(ctx, req)
 	if err != nil {
-		var app *apperror.AppError
-		if errors.As(err, &app) {
-			if app.Status >= 500 {
-				log.Error("login: service error", slog.Any("error", err))
-			} else {
-				log.Warn("login: rejected", slog.Int("status", app.Status), slog.String("code", app.Code))
-			}
-			return c.JSON(app.Status, response.Map{"error": app.Message, "code": app.Code})
-		}
-		log.Error("login: unexpected error", slog.Any("error", err))
-		return c.JSON(http.StatusInternalServerError, response.Map{"error": "internal server error"})
+		return response.Error(c, log, err, "login")
 	}
 	setRefreshCookie(c, h.svc.GetAppEnv() == "production", pair.RefreshRaw, pair.RefreshExp)
 	return c.JSON(http.StatusOK, TokenResponse{
@@ -157,17 +135,7 @@ func (h *Handler) Refresh(c *echo.Context) error {
 	ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
 	pair, err := h.svc.Refresh(ctx, ck.Value)
 	if err != nil {
-		var app *apperror.AppError
-		if errors.As(err, &app) {
-			if app.Status >= 500 {
-				log.Error("refresh: service error", slog.Any("error", err))
-			} else {
-				log.Warn("refresh: rejected", slog.Int("status", app.Status), slog.String("code", app.Code))
-			}
-			return c.JSON(app.Status, response.Map{"error": app.Message, "code": app.Code})
-		}
-		log.Error("refresh: unexpected error", slog.Any("error", err))
-		return c.JSON(http.StatusInternalServerError, response.Map{"error": "internal server error"})
+		return response.Error(c, log, err, "refresh")
 	}
 	setRefreshCookie(c, h.svc.GetAppEnv() == "production", pair.RefreshRaw, pair.RefreshExp)
 	return c.JSON(http.StatusOK, TokenResponse{
@@ -184,13 +152,7 @@ func (h *Handler) Logout(c *echo.Context) error {
 	if ck, err := c.Request().Cookie(RefreshCookieName); err == nil && ck != nil && ck.Value != "" {
 		ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
 		if err := h.svc.Logout(ctx, ck.Value); err != nil {
-			var app *apperror.AppError
-			if errors.As(err, &app) {
-				log.Error("logout: service error", slog.Any("error", err))
-				return c.JSON(app.Status, response.Map{"error": app.Message, "code": app.Code})
-			}
-			log.Error("logout: unexpected error", slog.Any("error", err))
-			return c.JSON(http.StatusInternalServerError, response.Map{"error": "internal server error"})
+			return response.Error(c, log, err, "logout")
 		}
 	}
 	clearRefreshCookie(c, h.svc.GetAppEnv() == "production")
@@ -209,13 +171,7 @@ func (h *Handler) LogoutAll(c *echo.Context) error {
 	}
 	ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
 	if err := h.svc.LogoutAll(ctx, uid); err != nil {
-		var app *apperror.AppError
-		if errors.As(err, &app) {
-			log.Error("logout-all: service error", slog.Any("error", err))
-			return c.JSON(app.Status, response.Map{"error": app.Message, "code": app.Code})
-		}
-		log.Error("logout-all: unexpected error", slog.Any("error", err))
-		return c.JSON(http.StatusInternalServerError, response.Map{"error": "internal server error"})
+		return response.Error(c, log, err, "logout-all")
 	}
 	clearRefreshCookie(c, h.svc.GetAppEnv() == "production")
 	return c.JSON(http.StatusOK, response.Map{"status": "ok"})
@@ -234,17 +190,7 @@ func (h *Handler) Me(c *echo.Context) error {
 	ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
 	u, err := h.svc.GetUser(ctx, uid)
 	if err != nil {
-		var app *apperror.AppError
-		if errors.As(err, &app) {
-			if app.Status >= 500 {
-				log.Error("me: service error", slog.Any("error", err))
-			} else {
-				log.Warn("me: rejected", slog.Int("status", app.Status), slog.String("code", app.Code))
-			}
-			return c.JSON(app.Status, response.Map{"error": app.Message, "code": app.Code})
-		}
-		log.Error("me: unexpected error", slog.Any("error", err))
-		return c.JSON(http.StatusInternalServerError, response.Map{"error": "internal server error"})
+		return response.Error(c, log, err, "me")
 	}
 	return c.JSON(http.StatusOK, ToUserResponse(u))
 }
@@ -307,20 +253,44 @@ func (h *Handler) SetupUsername(c *echo.Context) error {
 	ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
 	u, err := h.svc.SetupUsername(ctx, uid, req.Username)
 	if err != nil {
-		var app *apperror.AppError
-		if errors.As(err, &app) {
-			if app.Status >= 500 {
-				log.Error("setup-username: service error", slog.Any("error", err))
-			} else {
-				log.Warn("setup-username: rejected", slog.Int("status", app.Status), slog.String("code", app.Code))
-			}
-			return c.JSON(app.Status, response.Map{"error": app.Message, "code": app.Code})
-		}
-		log.Error("setup-username: unexpected error", slog.Any("error", err))
-		return c.JSON(http.StatusInternalServerError, response.Map{"error": "internal server error"})
+		return response.Error(c, log, err, "setup-username")
 	}
 
 	return c.JSON(http.StatusOK, ToUserResponse(u))
+}
+
+// ChangePassword changes the authenticated user's password.
+func (h *Handler) ChangePassword(c *echo.Context) error {
+	rid, _ := c.Get(logger.RequestIDKey).(string)
+	log := logger.WithRequestID(h.log, rid)
+
+	uid, _ := c.Get(UserIDKey).(string)
+	if uid == "" {
+		log.Warn("change-password: missing user id")
+		return c.JSON(http.StatusUnauthorized, response.Map{"error": "unauthorized", "code": "unauthorized"})
+	}
+
+	var req ChangePasswordRequest
+	if err := c.Bind(&req); err != nil {
+		log.Warn("change-password: bad request body", slog.Any("error", err))
+		return c.JSON(http.StatusBadRequest, response.Map{"error": "invalid request body"})
+	}
+	if err := c.Validate(&req); err != nil {
+		var ve *validation.Error
+		if errors.As(err, &ve) {
+			log.Warn("change-password: validation failed", slog.Any("fields", ve.Fields))
+			return c.JSON(http.StatusBadRequest, response.Map{"error": "validation failed", "fields": ve.Fields})
+		}
+		log.Warn("change-password: validation failed", slog.Any("error", err))
+		return c.JSON(http.StatusBadRequest, response.Map{"error": "validation failed"})
+	}
+
+	ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
+	if err := h.svc.ChangePassword(ctx, uid, req.CurrentPassword, req.NewPassword); err != nil {
+		return response.Error(c, log, err, "change-password")
+	}
+
+	return c.JSON(http.StatusOK, response.Map{"status": "ok"})
 }
 
 // errRateLimited marks a request already rejected with 429.
