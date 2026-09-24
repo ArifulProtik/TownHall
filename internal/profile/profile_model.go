@@ -1,4 +1,3 @@
-// Package profile provides user profile viewing, updating, and media uploads.
 package profile
 
 import (
@@ -6,9 +5,9 @@ import (
 	"time"
 
 	"ArifulProtik/TownHall/ent"
+	"ArifulProtik/TownHall/internal/auth"
 )
 
-// Response represents the full public or self profile.
 type Response struct {
 	ID             string    `json:"id"`
 	Name           string    `json:"name"`
@@ -28,11 +27,7 @@ type Response struct {
 	IsSelf         bool      `json:"is_self"`
 }
 
-// UpdateRequest holds the editable profile fields.
-//
-// Length rules count characters (minrunes/maxrunes), matching the service
-// and ent validators. Call normalize before Validate so rules apply to the
-// trimmed values that are actually persisted.
+// Length rules count characters, so normalize (trim) before Validate runs.
 type UpdateRequest struct {
 	Name      *string `json:"name,omitempty" validate:"omitempty,minrunes=2,maxrunes=100"`
 	Bio       *string `json:"bio,omitempty" validate:"omitempty,maxrunes=280"`
@@ -42,9 +37,9 @@ type UpdateRequest struct {
 	Website   *string `json:"website,omitempty" validate:"omitempty,maxrunes=200"`
 }
 
-// normalize trims editable fields in place so validation and persistence
-// agree on the stored values.
-func (r *UpdateRequest) normalize() {
+// Normalize trims editable fields in place. response.Bind calls it between
+// binding and validation so rune rules apply to the stored values.
+func (r *UpdateRequest) Normalize() {
 	for _, f := range []*string{r.Name, r.Bio, r.AvatarURL, r.BannerURL, r.Location, r.Website} {
 		if f != nil {
 			*f = strings.TrimSpace(*f)
@@ -52,20 +47,9 @@ func (r *UpdateRequest) normalize() {
 	}
 }
 
-// UploadResponse returns the result of a file upload to UploadThing or local storage.
-type UploadResponse struct {
-	URL  string `json:"url"`
-	Key  string `json:"key,omitempty"`
-	Name string `json:"name,omitempty"`
-	Size int64  `json:"size,omitempty"`
-}
-
-// ToResponse transforms an ent.User into a profile Response.
+// ToResponse is ToUserResponse plus profile extras. Email shows only to self.
 func ToResponse(u *ent.User, viewerID string) Response {
-	var username *string
-	if u.Username != "" {
-		username = &u.Username
-	}
+	base := auth.ToUserResponse(u)
 	isSelf := viewerID != "" && viewerID == u.ID
 	email := ""
 	if isSelf {
@@ -73,18 +57,18 @@ func ToResponse(u *ent.User, viewerID string) Response {
 	}
 
 	return Response{
-		ID:             u.ID,
-		Name:           u.Name,
+		ID:             base.ID,
+		Name:           base.Name,
 		Email:          email,
-		Username:       username,
-		Provider:       string(u.Provider),
-		EmailVerified:  u.EmailVerified,
-		Bio:            u.Bio,
-		AvatarURL:      u.AvatarURL,
-		BannerURL:      u.BannerURL,
-		Location:       u.Location,
-		Website:        u.Website,
-		CreatedAt:      u.CreatedAt,
+		Username:       base.Username,
+		Provider:       base.Provider,
+		EmailVerified:  base.EmailVerified,
+		Bio:            base.Bio,
+		AvatarURL:      base.AvatarURL,
+		BannerURL:      base.BannerURL,
+		Location:       base.Location,
+		Website:        base.Website,
+		CreatedAt:      base.CreatedAt,
 		FollowersCount: 0,
 		FollowingCount: 0,
 		PostsCount:     0,

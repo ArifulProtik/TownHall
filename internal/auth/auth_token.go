@@ -13,17 +13,14 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// BcryptCost is the bcrypt cost applied to all password hashing.
 const BcryptCost = 12
 
-// RefreshTokenBytes is the crypto/rand entropy size of raw refresh tokens.
 const RefreshTokenBytes = 32
 
-// dummyPasswordHash is a valid cost-12 bcrypt hash compared against on
-// unknown-email login so timing matches the wrong-password path.
-const dummyPasswordHash = "$2a$12$RMU9l7T/F9JUd0HsvLdQGOuKF.Zp5PUDS1H89./B9ibJ0ip9yZyFa" //nolint:gosec // dummy bcrypt hash for timing-safe login, not a credential
+// Compared on unknown-email login so failures take as long as wrong passwords.
+const dummyPasswordHash = "$2a$12$RMU9l7T/F9JUd0HsvLdQGOuKF.Zp5PUDS1H89./B9ibJ0ip9yZyFa"
 
-// MintAccessToken issues an HS256 access JWT for userID valid for ttl.
+// MintAccessToken issues an HS256 access token for userID valid for ttl.
 func MintAccessToken(secret, userID string, ttl time.Duration) (string, error) {
 	now := time.Now()
 	claims := jwt.MapClaims{
@@ -34,7 +31,6 @@ func MintAccessToken(secret, userID string, ttl time.Duration) (string, error) {
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(secret))
 }
 
-// VerifyAccessToken validates token against secret and returns the subject.
 func VerifyAccessToken(secret, token string) (string, error) {
 	parsed, err := jwt.Parse(token, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -56,8 +52,7 @@ func VerifyAccessToken(secret, token string) (string, error) {
 	return sub, nil
 }
 
-// NewRefreshToken generates a raw opaque token plus its SHA-256 storage hash.
-// Only the hash may be persisted or logged; the raw value goes to the cookie.
+// NewRefreshToken returns a raw token for the cookie plus its hash for storage.
 func NewRefreshToken() (raw, hash string, err error) {
 	var b [RefreshTokenBytes]byte
 	if _, err := rand.Read(b[:]); err != nil {
@@ -67,16 +62,12 @@ func NewRefreshToken() (raw, hash string, err error) {
 	return raw, HashRefreshToken(raw), nil
 }
 
-// HashRefreshToken returns the hex SHA-256 of a raw refresh token.
 func HashRefreshToken(raw string) string {
 	sum := sha256.Sum256([]byte(raw))
 	return hex.EncodeToString(sum[:])
 }
 
-// RefreshTokenMatches constant-time compares a stored hash to a raw candidate.
-// Production lookup is by DB equality on the SHA-256 hash (256-bit random
-// tokens have no practical timing leak); this helper exists for explicit
-// re-comparison and unit tests.
+// Production lookup is by DB equality on the hash; this is for re-checks and tests.
 func RefreshTokenMatches(storedHash, rawCandidate string) bool {
 	candidate := HashRefreshToken(rawCandidate)
 	if len(storedHash) != len(candidate) {

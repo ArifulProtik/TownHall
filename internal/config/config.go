@@ -1,8 +1,7 @@
-// Package config loads process configuration from the environment.
 package config
 
 import (
-	"log"
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -10,7 +9,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// Config holds process configuration loaded from the environment.
 type Config struct {
 	Port             string
 	AppEnv           string
@@ -24,24 +22,40 @@ type Config struct {
 	UploadthingToken string
 }
 
-// New loads configuration, exiting the process on missing/invalid required values.
-func New() *Config {
-	if err := godotenv.Load(); err != nil {
-		log.Println("config: no env file found at the root. relying on env VARS")
-	}
+// IsProd reports whether the app runs in production (JSON logs, secure cookies).
+func (c *Config) IsProd() bool {
+	return c.AppEnv == "production"
+}
 
-	return &Config{
+// New loads configuration. Missing .env is fine when real env vars exist;
+// missing required values are an error for main to report.
+func New() (*Config, error) {
+	_ = godotenv.Load()
+
+	cfg := &Config{
 		Port:             getEnv("PORT", "8080"),
 		AppEnv:           getEnv("APP_ENV", "development"),
 		LogLevel:         getEnv("LOG_LEVEL", "info"),
-		AutoMigrate:      getBool("AUTO_MIGRATE", false),
-		DatabaseURL:      mustGetEnv("DATABASE_URL"),
-		JWTSecret:        mustGetEnv("JWT_SECRET"),
-		JWTAccessTTL:     getDuration("JWT_ACCESS_TTL", 15*time.Minute),
-		JWTRefreshTTL:    getDuration("JWT_REFRESH_TTL", 30*24*time.Hour),
 		RedisURL:         getEnv("REDIS_URL", "redis://localhost:6379"),
 		UploadthingToken: getFirstEnv([]string{"UPLOADTHING_TOKEN", "UPLOADTHING_SECRET", "UPLOADTHING_API_KEY"}, ""),
 	}
+	var err error
+	if cfg.AutoMigrate, err = getBool("AUTO_MIGRATE", false); err != nil {
+		return nil, err
+	}
+	if cfg.DatabaseURL, err = mustGetEnv("DATABASE_URL"); err != nil {
+		return nil, err
+	}
+	if cfg.JWTSecret, err = mustGetEnv("JWT_SECRET"); err != nil {
+		return nil, err
+	}
+	if cfg.JWTAccessTTL, err = getDuration("JWT_ACCESS_TTL", 15*time.Minute); err != nil {
+		return nil, err
+	}
+	if cfg.JWTRefreshTTL, err = getDuration("JWT_REFRESH_TTL", 30*24*time.Hour); err != nil {
+		return nil, err
+	}
+	return cfg, nil
 }
 
 func getEnv(key, fallback string) string {
@@ -60,34 +74,34 @@ func getFirstEnv(keys []string, fallback string) string {
 	return fallback
 }
 
-func getBool(key string, fallback bool) bool {
+func getBool(key string, fallback bool) (bool, error) {
 	v := os.Getenv(key)
 	if v == "" {
-		return fallback
+		return fallback, nil
 	}
 	b, err := strconv.ParseBool(v)
 	if err != nil {
-		log.Fatalf("invalid boolean for %s: %v", key, err)
+		return false, fmt.Errorf("invalid boolean for %s: %w", key, err)
 	}
-	return b
+	return b, nil
 }
 
-func mustGetEnv(key string) string {
+func mustGetEnv(key string) (string, error) {
 	v := os.Getenv(key)
 	if v == "" {
-		log.Fatalf("required env var %s is not set", key)
+		return "", fmt.Errorf("required env var %s is not set", key)
 	}
-	return v
+	return v, nil
 }
 
-func getDuration(key string, fallback time.Duration) time.Duration {
+func getDuration(key string, fallback time.Duration) (time.Duration, error) {
 	v := os.Getenv(key)
 	if v == "" {
-		return fallback
+		return fallback, nil
 	}
 	d, err := time.ParseDuration(v)
 	if err != nil {
-		log.Fatalf("invalid duration for %s: %v", key, err)
+		return 0, fmt.Errorf("invalid duration for %s: %w", key, err)
 	}
-	return d
+	return d, nil
 }

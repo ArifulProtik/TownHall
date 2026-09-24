@@ -6,14 +6,13 @@ import (
 	"ArifulProtik/TownHall/ent"
 )
 
-// SignupEmail is the signup-with-email request body.
+// max=72 on passwords is the bcrypt limit, not a product choice.
 type SignupEmail struct {
 	Name     string `json:"name" validate:"required,min=2,max=100"`
 	Email    string `json:"email" validate:"required,email,max=255"`
 	Password string `json:"password" validate:"required,min=8,max=72"`
 }
 
-// UserResponse is the safe public user shape (never includes the hash).
 type UserResponse struct {
 	ID            string    `json:"id"`
 	Name          string    `json:"name"`
@@ -29,25 +28,21 @@ type UserResponse struct {
 	CreatedAt     time.Time `json:"created_at"`
 }
 
-// CheckUsernameResponse reports whether a username is available.
 type CheckUsernameResponse struct {
 	Available bool   `json:"available"`
 	Reason    string `json:"reason,omitempty"`
 }
 
-// SetupUsernameRequest holds the request to set an initial username.
 type SetupUsernameRequest struct {
 	Username string `json:"username" validate:"required,min=3,max=30,alphanum_underscore"`
 }
 
-// LoginRequest is the login request body.
 type LoginRequest struct {
 	Email    string `json:"email" validate:"required,email,max=255"`
 	Password string `json:"password" validate:"required,min=8,max=72"`
 }
 
-// TokenPair is an issued access + refresh token set with expiries.
-// RefreshRaw is the only copy of the raw refresh value — hash before storing.
+// RefreshRaw is the only copy of the raw refresh value; only its hash is stored.
 type TokenPair struct {
 	AccessToken string
 	AccessExp   time.Time
@@ -55,13 +50,12 @@ type TokenPair struct {
 	RefreshExp  time.Time
 }
 
-// ChangePasswordRequest holds current and new passwords for updating credentials.
 type ChangePasswordRequest struct {
 	CurrentPassword string `json:"current_password" validate:"required,min=8,max=72"`
 	NewPassword     string `json:"new_password" validate:"required,min=8,max=72"`
 }
 
-// ToUserResponse maps an Ent user to its public response shape.
+// ToUserResponse drops the password hash; it must never reach JSON.
 func ToUserResponse(u *ent.User) UserResponse {
 	var username *string
 	if u.Username != "" {
@@ -83,7 +77,7 @@ func ToUserResponse(u *ent.User) UserResponse {
 	}
 }
 
-// TokenResponse carries an access token; the refresh token travels by cookie only.
+// TokenResponse carries the access token; refresh travels by cookie only.
 type TokenResponse struct {
 	AccessToken string `json:"access_token"`
 	ExpiresIn   int64  `json:"expires_in"`

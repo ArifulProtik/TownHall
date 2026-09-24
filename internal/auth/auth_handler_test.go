@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -11,8 +10,6 @@ import (
 	"time"
 
 	"ArifulProtik/TownHall/ent/enttest"
-	"ArifulProtik/TownHall/internal/config"
-	"ArifulProtik/TownHall/pkg/logger"
 	"ArifulProtik/TownHall/pkg/validation"
 
 	"github.com/labstack/echo/v5"
@@ -22,7 +19,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func newTestHandler(t *testing.T) (*echo.Echo, *Handler, *bytes.Buffer) {
+func newTestHandler(t *testing.T) (*echo.Echo, *Handler) {
 	t.Helper()
 	client := enttest.Open(t, "sqlite3", "file:authhandler?mode=memory&cache=shared&_fk=1")
 	t.Cleanup(func() { client.Close() })
@@ -30,15 +27,8 @@ func newTestHandler(t *testing.T) (*echo.Echo, *Handler, *bytes.Buffer) {
 	e := echo.New()
 	e.Validator = validation.New()
 
-	var buf bytes.Buffer
-	log := logger.NewWithWriter("test", "info", &buf)
-	svc := NewService(&config.Config{
-		AppEnv:        "test",
-		JWTSecret:     "test-secret-1234567890",
-		JWTAccessTTL:  15 * time.Minute,
-		JWTRefreshTTL: 720 * time.Hour,
-	}, client, log)
-	return e, NewHandler(svc, log), &buf
+	svc := NewService(client, "test-secret-1234567890", 15*time.Minute, 720*time.Hour)
+	return e, NewHandler(svc, false, "test")
 }
 
 func doSignup(t *testing.T, e *echo.Echo, h *Handler, body string) *httptest.ResponseRecorder {
@@ -47,13 +37,12 @@ func doSignup(t *testing.T, e *echo.Echo, h *Handler, body string) *httptest.Res
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.Set(logger.RequestIDKey, "req-handler-1")
 	require.NoError(t, h.SignupEmail(c))
 	return rec
 }
 
 func TestSignupEmailHandler_HappyPath(t *testing.T) {
-	e, h, _ := newTestHandler(t)
+	e, h := newTestHandler(t)
 
 	rec := doSignup(t, e, h, `{"name":"Joe","email":"joe@example.com","password":"password123"}`)
 	assert.Equal(t, http.StatusCreated, rec.Code)
@@ -66,7 +55,7 @@ func TestSignupEmailHandler_HappyPath(t *testing.T) {
 }
 
 func TestSignupEmailHandler_ValidationError(t *testing.T) {
-	e, h, buf := newTestHandler(t)
+	e, h := newTestHandler(t)
 
 	rec := doSignup(t, e, h, `{"name":"Joe","email":"not-an-email","password":"password123"}`)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
@@ -75,13 +64,10 @@ func TestSignupEmailHandler_ValidationError(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
 	assert.Equal(t, "validation failed", resp["error"])
 	assert.Contains(t, resp, "fields")
-
-	assert.Contains(t, buf.String(), "validation failed")
-	assert.Contains(t, buf.String(), "req-handler-1")
 }
 
 func TestSignupEmailHandler_Duplicate(t *testing.T) {
-	e, h, _ := newTestHandler(t)
+	e, h := newTestHandler(t)
 
 	first := doSignup(t, e, h, `{"name":"Joe","email":"joe@example.com","password":"password123"}`)
 	require.Equal(t, http.StatusCreated, first.Code)
@@ -96,14 +82,13 @@ func doLogin(t *testing.T, e *echo.Echo, h *Handler, body string) *httptest.Resp
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.Set(logger.RequestIDKey, "req-login-1")
 	if err := h.Login(c); !errors.Is(err, errRateLimited) {
 		require.NoError(t, err)
 	}
 	return rec
 }
 
-func refreshCookie(t *testing.T, rec *httptest.ResponseRecorder) *http.Cookie {
+func refreshCookieFrom(t *testing.T, rec *httptest.ResponseRecorder) *http.Cookie {
 	t.Helper()
 	for _, ck := range rec.Result().Cookies() {
 		if ck.Name == RefreshCookieName {
@@ -122,13 +107,12 @@ func doRefresh(t *testing.T, e *echo.Echo, h *Handler, ck *http.Cookie) *httptes
 	}
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.Set(logger.RequestIDKey, "req-refresh-1")
 	require.NoError(t, h.Refresh(c))
 	return rec
 }
 
 func TestLoginHandler_SuccessAndCookie(t *testing.T) {
-	e, h, _ := newTestHandler(t)
+	e, h := newTestHandler(t)
 	require.Equal(t, http.StatusCreated, doSignup(t, e, h, `{"name":"Joe","email":"joe@example.com","password":"password123"}`).Code)
 
 	rec := doLogin(t, e, h, `{"email":"joe@example.com","password":"password123"}`)
@@ -139,14 +123,14 @@ func TestLoginHandler_SuccessAndCookie(t *testing.T) {
 	assert.NotEmpty(t, body["access_token"])
 	assert.NotContains(t, body, "refresh_token")
 
-	ck := refreshCookie(t, rec)
+	ck := refreshCookieFrom(t, rec)
 	assert.True(t, ck.HttpOnly)
 	assert.Equal(t, RefreshCookiePath, ck.Path)
 	assert.Equal(t, http.SameSiteStrictMode, ck.SameSite)
 }
 
 func TestLoginHandler_FailureIdentical(t *testing.T) {
-	e, h, _ := newTestHandler(t)
+	e, h := newTestHandler(t)
 	require.Equal(t, http.StatusCreated, doSignup(t, e, h, `{"name":"Joe","email":"joe@example.com","password":"password123"}`).Code)
 
 	wrong := doLogin(t, e, h, `{"email":"joe@example.com","password":"wrongpassword"}`)
@@ -157,7 +141,7 @@ func TestLoginHandler_FailureIdentical(t *testing.T) {
 }
 
 func TestLoginHandler_RateLimited(t *testing.T) {
-	e, h, _ := newTestHandler(t)
+	e, h := newTestHandler(t)
 	require.Equal(t, http.StatusCreated, doSignup(t, e, h, `{"name":"Joe","email":"joe@example.com","password":"password123"}`).Code)
 
 	var rec *httptest.ResponseRecorder
@@ -170,13 +154,13 @@ func TestLoginHandler_RateLimited(t *testing.T) {
 }
 
 func TestRefreshHandler_RotationAndReuse(t *testing.T) {
-	e, h, _ := newTestHandler(t)
+	e, h := newTestHandler(t)
 	require.Equal(t, http.StatusCreated, doSignup(t, e, h, `{"name":"Joe","email":"joe@example.com","password":"password123"}`).Code)
 
-	first := refreshCookie(t, doLogin(t, e, h, `{"email":"joe@example.com","password":"password123"}`))
+	first := refreshCookieFrom(t, doLogin(t, e, h, `{"email":"joe@example.com","password":"password123"}`))
 	rotated := doRefresh(t, e, h, first)
 	assert.Equal(t, http.StatusOK, rotated.Code)
-	second := refreshCookie(t, rotated)
+	second := refreshCookieFrom(t, rotated)
 
 	// Replay of the rotated token → 401 and full revocation.
 	replay := doRefresh(t, e, h, first)
@@ -188,11 +172,11 @@ func TestRefreshHandler_RotationAndReuse(t *testing.T) {
 }
 
 func TestLogoutHandlers(t *testing.T) {
-	e, h, _ := newTestHandler(t)
+	e, h := newTestHandler(t)
 	require.Equal(t, http.StatusCreated, doSignup(t, e, h, `{"name":"Joe","email":"joe@example.com","password":"password123"}`).Code)
 
-	ckA := refreshCookie(t, doLogin(t, e, h, `{"email":"joe@example.com","password":"password123"}`))
-	ckB := refreshCookie(t, doLogin(t, e, h, `{"email":"joe@example.com","password":"password123"}`))
+	ckA := refreshCookieFrom(t, doLogin(t, e, h, `{"email":"joe@example.com","password":"password123"}`))
+	ckB := refreshCookieFrom(t, doLogin(t, e, h, `{"email":"joe@example.com","password":"password123"}`))
 
 	// Logout A: clears cookie, kills A, spares B.
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout", nil)
@@ -212,7 +196,7 @@ func TestLogoutHandlers(t *testing.T) {
 
 	// Reuse path above revoked ALL tokens including B, so re-login for a
 	// fresh cookie to prove logout-all revokes a live token.
-	ckB2 := refreshCookie(t, doLogin(t, e, h, `{"email":"joe@example.com","password":"password123"}`))
+	ckB2 := refreshCookieFrom(t, doLogin(t, e, h, `{"email":"joe@example.com","password":"password123"}`))
 	_ = ckB
 
 	// Logout-all with user id: kills B2 too.
@@ -245,7 +229,7 @@ func tokenFrom(t *testing.T, e *echo.Echo, h *Handler) string {
 }
 
 func TestMeHandler(t *testing.T) {
-	e, h, _ := newTestHandler(t)
+	e, h := newTestHandler(t)
 	signupRec := doSignup(t, e, h, `{"name":"Joe","email":"joe@example.com","password":"password123"}`)
 	require.Equal(t, http.StatusCreated, signupRec.Code)
 
@@ -259,7 +243,6 @@ func TestMeHandler(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 	c.Set(UserIDKey, uid)
-	c.Set(logger.RequestIDKey, "req-me-1")
 	require.NoError(t, h.Me(c))
 	assert.Equal(t, http.StatusOK, rec.Code)
 
@@ -272,13 +255,12 @@ func TestMeHandler(t *testing.T) {
 	reqAnon := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
 	recAnon := httptest.NewRecorder()
 	cAnon := e.NewContext(reqAnon, recAnon)
-	cAnon.Set(logger.RequestIDKey, "req-me-anon")
 	require.NoError(t, h.Me(cAnon))
 	assert.Equal(t, http.StatusUnauthorized, recAnon.Code)
 }
 
 func TestCheckUsernameHandler(t *testing.T) {
-	e, h, _ := newTestHandler(t)
+	e, h := newTestHandler(t)
 	signupRec := doSignup(t, e, h, `{"name":"Tester","email":"check@example.com","password":"password123"}`)
 	require.Equal(t, http.StatusCreated, signupRec.Code)
 
@@ -315,7 +297,7 @@ func TestCheckUsernameHandler(t *testing.T) {
 }
 
 func TestSetupUsernameHandler(t *testing.T) {
-	e, h, _ := newTestHandler(t)
+	e, h := newTestHandler(t)
 	signupRec := doSignup(t, e, h, `{"name":"Onboard","email":"onboard@example.com","password":"password123"}`)
 	require.Equal(t, http.StatusCreated, signupRec.Code)
 
@@ -372,11 +354,11 @@ func TestSetupUsernameHandler(t *testing.T) {
 }
 
 func TestRegisterRoutes_PublicAndProtected(t *testing.T) {
-	e, h, _ := newTestHandler(t)
+	e, h := newTestHandler(t)
 
 	api := e.Group("/api/v1")
 	public := api.Group("")
-	protected := api.Group("", Middleware(h.svc.config.JWTSecret))
+	protected := api.Group("", Middleware("test-secret-1234567890"))
 	h.RegisterRoutes(public, protected)
 
 	// Public endpoint /health should return 200 without Authorization header
@@ -393,7 +375,7 @@ func TestRegisterRoutes_PublicAndProtected(t *testing.T) {
 }
 
 func TestChangePasswordHandler(t *testing.T) {
-	e, h, _ := newTestHandler(t)
+	e, h := newTestHandler(t)
 	signupRec := doSignup(t, e, h, `{"name":"PassUser","email":"passchange@example.com","password":"oldpassword123"}`)
 	require.Equal(t, http.StatusCreated, signupRec.Code)
 

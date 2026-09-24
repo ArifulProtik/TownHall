@@ -1,28 +1,27 @@
-// Package auth implements signup and authentication use cases.
 package auth
 
 import (
 	"errors"
-	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
-	"ArifulProtik/TownHall/pkg/logger"
 	"ArifulProtik/TownHall/pkg/response"
-	"ArifulProtik/TownHall/pkg/validation"
 
 	"github.com/labstack/echo/v5"
 )
 
-// Handler serves the auth HTTP endpoints.
 type Handler struct {
-	svc *Service
-	log *slog.Logger
+	svc    *Service
+	secure bool
+	env    string
 }
 
-// RegisterRoutes mounts the auth endpoints on the public and protected groups.
+func NewHandler(svc *Service, secure bool, env string) *Handler {
+	return &Handler{svc: svc, secure: secure, env: env}
+}
+
 func (h *Handler) RegisterRoutes(public *echo.Group, protected *echo.Group) {
 	authPublic := public.Group("/auth")
 	authPublic.GET("/health", h.HealthCheck)
@@ -40,266 +39,154 @@ func (h *Handler) RegisterRoutes(public *echo.Group, protected *echo.Group) {
 	authProtected.POST("/logout-all", h.LogoutAll)
 }
 
-// NewHandler builds an Handler around svc.
-func NewHandler(svc *Service, log *slog.Logger) *Handler {
-	return &Handler{svc: svc, log: log}
-}
-
-// HealthCheck reports service liveness and environment.
 func (h *Handler) HealthCheck(c *echo.Context) error {
-	return c.JSON(200, response.Map{"status": "ok", "env": h.svc.GetAppEnv()})
+	return c.JSON(200, response.Map{"status": "ok", "env": h.env})
 }
 
-// SignupEmail validates the request, creates the user, and returns 201.
 func (h *Handler) SignupEmail(c *echo.Context) error {
-	rid, _ := c.Get(logger.RequestIDKey).(string)
-	log := logger.WithRequestID(h.log, rid)
-
 	var req SignupEmail
-	if err := c.Bind(&req); err != nil {
-		log.Warn("signup: bad request body", slog.Any("error", err))
-		return c.JSON(http.StatusBadRequest, response.Map{"error": "invalid request body"})
-	}
-	if err := c.Validate(&req); err != nil {
-		var ve *validation.Error
-		if errors.As(err, &ve) {
-			log.Warn("signup: validation failed", slog.Any("fields", ve.Fields))
-			return c.JSON(http.StatusBadRequest, response.Map{"error": "validation failed", "fields": ve.Fields})
-		}
-		log.Warn("signup: validation failed", slog.Any("error", err))
-		return c.JSON(http.StatusBadRequest, response.Map{"error": "validation failed"})
+	if !response.Bind(c, &req) {
+		return nil
 	}
 	if err := h.checkRateLimit(c, req.Email); err != nil {
 		return err
 	}
 
-	ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
-	u, err := h.svc.SignupEmail(ctx, req)
+	u, err := h.svc.SignupEmail(c.Request().Context(), req)
 	if err != nil {
-		return response.Error(c, log, err, "signup")
+		return response.Error(c, err)
 	}
 	return c.JSON(http.StatusCreated, ToUserResponse(u))
 }
 
-// RefreshCookieName is the refresh-token cookie name.
-const RefreshCookieName = "refresh_token"
-
-// RefreshCookiePath scopes the refresh cookie to auth endpoints.
-const RefreshCookiePath = "/api/v1/auth"
-
-// Login authenticates email+password and issues tokens.
 func (h *Handler) Login(c *echo.Context) error {
-	rid, _ := c.Get(logger.RequestIDKey).(string)
-	log := logger.WithRequestID(h.log, rid)
-
 	var req LoginRequest
-	if err := c.Bind(&req); err != nil {
-		log.Warn("login: bad request body", slog.Any("error", err))
-		return c.JSON(http.StatusBadRequest, response.Map{"error": "invalid request body"})
-	}
-	if err := c.Validate(&req); err != nil {
-		var ve *validation.Error
-		if errors.As(err, &ve) {
-			log.Warn("login: validation failed", slog.Any("fields", ve.Fields))
-			return c.JSON(http.StatusBadRequest, response.Map{"error": "validation failed", "fields": ve.Fields})
-		}
-		log.Warn("login: validation failed", slog.Any("error", err))
-		return c.JSON(http.StatusBadRequest, response.Map{"error": "validation failed"})
+	if !response.Bind(c, &req) {
+		return nil
 	}
 	if err := h.checkRateLimit(c, req.Email); err != nil {
 		return err
 	}
 
-	ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
-	pair, err := h.svc.Login(ctx, req)
+	pair, err := h.svc.Login(c.Request().Context(), req)
 	if err != nil {
-		return response.Error(c, log, err, "login")
+		return response.Error(c, err)
 	}
-	setRefreshCookie(c, h.svc.GetAppEnv() == "production", pair.RefreshRaw, pair.RefreshExp)
+	setRefreshCookie(c, h.secure, pair.RefreshRaw, pair.RefreshExp)
 	return c.JSON(http.StatusOK, TokenResponse{
 		AccessToken: pair.AccessToken,
 		ExpiresIn:   int64(time.Until(pair.AccessExp).Seconds()),
 	})
 }
 
-// Refresh rotates the refresh-token cookie and returns a new access token.
 func (h *Handler) Refresh(c *echo.Context) error {
-	rid, _ := c.Get(logger.RequestIDKey).(string)
-	log := logger.WithRequestID(h.log, rid)
-
 	ck, err := c.Request().Cookie(RefreshCookieName)
 	if err != nil || ck == nil || ck.Value == "" {
-		log.Warn("refresh: missing cookie")
-		return c.JSON(http.StatusUnauthorized, response.Map{"error": "unauthorized", "code": "unauthorized"})
+		return response.Unauthorized(c)
 	}
-	ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
-	pair, err := h.svc.Refresh(ctx, ck.Value)
+	pair, err := h.svc.Refresh(c.Request().Context(), ck.Value)
 	if err != nil {
-		return response.Error(c, log, err, "refresh")
+		return response.Error(c, err)
 	}
-	setRefreshCookie(c, h.svc.GetAppEnv() == "production", pair.RefreshRaw, pair.RefreshExp)
+	setRefreshCookie(c, h.secure, pair.RefreshRaw, pair.RefreshExp)
 	return c.JSON(http.StatusOK, TokenResponse{
 		AccessToken: pair.AccessToken,
 		ExpiresIn:   int64(time.Until(pair.AccessExp).Seconds()),
 	})
 }
 
-// Logout revokes the current refresh token and clears the cookie.
 func (h *Handler) Logout(c *echo.Context) error {
-	rid, _ := c.Get(logger.RequestIDKey).(string)
-	log := logger.WithRequestID(h.log, rid)
-
 	if ck, err := c.Request().Cookie(RefreshCookieName); err == nil && ck != nil && ck.Value != "" {
-		ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
-		if err := h.svc.Logout(ctx, ck.Value); err != nil {
-			return response.Error(c, log, err, "logout")
+		if err := h.svc.Logout(c.Request().Context(), ck.Value); err != nil {
+			return response.Error(c, err)
 		}
 	}
-	clearRefreshCookie(c, h.svc.GetAppEnv() == "production")
+	clearRefreshCookie(c, h.secure)
 	return c.JSON(http.StatusOK, response.Map{"status": "ok"})
 }
 
-// LogoutAll revokes every refresh token for the authenticated user.
 func (h *Handler) LogoutAll(c *echo.Context) error {
-	rid, _ := c.Get(logger.RequestIDKey).(string)
-	log := logger.WithRequestID(h.log, rid)
-
-	uid, _ := c.Get(UserIDKey).(string)
-	if uid == "" {
-		log.Warn("logout-all: missing user id")
-		return c.JSON(http.StatusUnauthorized, response.Map{"error": "unauthorized", "code": "unauthorized"})
+	uid, ok := response.CurrentUserID(c)
+	if !ok {
+		return nil
 	}
-	ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
-	if err := h.svc.LogoutAll(ctx, uid); err != nil {
-		return response.Error(c, log, err, "logout-all")
+	if err := h.svc.LogoutAll(c.Request().Context(), uid); err != nil {
+		return response.Error(c, err)
 	}
-	clearRefreshCookie(c, h.svc.GetAppEnv() == "production")
+	clearRefreshCookie(c, h.secure)
 	return c.JSON(http.StatusOK, response.Map{"status": "ok"})
 }
 
-// Me returns the authenticated user's profile.
 func (h *Handler) Me(c *echo.Context) error {
-	rid, _ := c.Get(logger.RequestIDKey).(string)
-	log := logger.WithRequestID(h.log, rid)
-
-	uid, _ := c.Get(UserIDKey).(string)
-	if uid == "" {
-		log.Warn("me: missing user id")
-		return c.JSON(http.StatusUnauthorized, response.Map{"error": "unauthorized", "code": "unauthorized"})
+	uid, ok := response.CurrentUserID(c)
+	if !ok {
+		return nil
 	}
-	ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
-	u, err := h.svc.GetUser(ctx, uid)
+	u, err := h.svc.GetUser(c.Request().Context(), uid)
 	if err != nil {
-		return response.Error(c, log, err, "me")
+		return response.Error(c, err)
 	}
 	return c.JSON(http.StatusOK, ToUserResponse(u))
 }
 
-// CheckUsername verifies if a username is available.
 func (h *Handler) CheckUsername(c *echo.Context) error {
-	rid, _ := c.Get(logger.RequestIDKey).(string)
-	log := logger.WithRequestID(h.log, rid)
-
-	uid, _ := c.Get(UserIDKey).(string)
-	if uid == "" {
-		log.Warn("check-username: missing user id")
-		return c.JSON(http.StatusUnauthorized, response.Map{"error": "unauthorized", "code": "unauthorized"})
+	uid, ok := response.CurrentUserID(c)
+	if !ok {
+		return nil
 	}
 
-	qUsername := c.QueryParam("username")
-	if strings.TrimSpace(qUsername) == "" {
+	username := c.QueryParam("username")
+	if strings.TrimSpace(username) == "" {
 		return c.JSON(http.StatusBadRequest, response.Map{"error": "username query parameter is required"})
 	}
 
-	ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
-	avail, reason, err := h.svc.CheckUsername(ctx, uid, qUsername)
+	avail, reason, err := h.svc.CheckUsername(c.Request().Context(), uid, username)
 	if err != nil {
-		log.Error("check-username: service error", slog.Any("error", err))
-		return c.JSON(http.StatusInternalServerError, response.Map{"error": "internal server error"})
+		return response.Error(c, err)
 	}
-
-	return c.JSON(http.StatusOK, CheckUsernameResponse{
-		Available: avail,
-		Reason:    reason,
-	})
+	return c.JSON(http.StatusOK, CheckUsernameResponse{Available: avail, Reason: reason})
 }
 
-// SetupUsername sets the authenticated user's handle.
 func (h *Handler) SetupUsername(c *echo.Context) error {
-	rid, _ := c.Get(logger.RequestIDKey).(string)
-	log := logger.WithRequestID(h.log, rid)
-
-	uid, _ := c.Get(UserIDKey).(string)
-	if uid == "" {
-		log.Warn("setup-username: missing user id")
-		return c.JSON(http.StatusUnauthorized, response.Map{"error": "unauthorized", "code": "unauthorized"})
+	uid, ok := response.CurrentUserID(c)
+	if !ok {
+		return nil
 	}
 
 	var req SetupUsernameRequest
-	if err := c.Bind(&req); err != nil {
-		log.Warn("setup-username: bad request body", slog.Any("error", err))
-		return c.JSON(http.StatusBadRequest, response.Map{"error": "invalid request body"})
-	}
-	if err := c.Validate(&req); err != nil {
-		var ve *validation.Error
-		if errors.As(err, &ve) {
-			log.Warn("setup-username: validation failed", slog.Any("fields", ve.Fields))
-			return c.JSON(http.StatusBadRequest, response.Map{"error": "validation failed", "fields": ve.Fields})
-		}
-		log.Warn("setup-username: validation failed", slog.Any("error", err))
-		return c.JSON(http.StatusBadRequest, response.Map{"error": "validation failed"})
+	if !response.Bind(c, &req) {
+		return nil
 	}
 
-	ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
-	u, err := h.svc.SetupUsername(ctx, uid, req.Username)
+	u, err := h.svc.SetupUsername(c.Request().Context(), uid, req.Username)
 	if err != nil {
-		return response.Error(c, log, err, "setup-username")
+		return response.Error(c, err)
 	}
-
 	return c.JSON(http.StatusOK, ToUserResponse(u))
 }
 
-// ChangePassword changes the authenticated user's password.
 func (h *Handler) ChangePassword(c *echo.Context) error {
-	rid, _ := c.Get(logger.RequestIDKey).(string)
-	log := logger.WithRequestID(h.log, rid)
-
-	uid, _ := c.Get(UserIDKey).(string)
-	if uid == "" {
-		log.Warn("change-password: missing user id")
-		return c.JSON(http.StatusUnauthorized, response.Map{"error": "unauthorized", "code": "unauthorized"})
+	uid, ok := response.CurrentUserID(c)
+	if !ok {
+		return nil
 	}
 
 	var req ChangePasswordRequest
-	if err := c.Bind(&req); err != nil {
-		log.Warn("change-password: bad request body", slog.Any("error", err))
-		return c.JSON(http.StatusBadRequest, response.Map{"error": "invalid request body"})
-	}
-	if err := c.Validate(&req); err != nil {
-		var ve *validation.Error
-		if errors.As(err, &ve) {
-			log.Warn("change-password: validation failed", slog.Any("fields", ve.Fields))
-			return c.JSON(http.StatusBadRequest, response.Map{"error": "validation failed", "fields": ve.Fields})
-		}
-		log.Warn("change-password: validation failed", slog.Any("error", err))
-		return c.JSON(http.StatusBadRequest, response.Map{"error": "validation failed"})
+	if !response.Bind(c, &req) {
+		return nil
 	}
 
-	ctx := logger.ContextWithRequestID(c.Request().Context(), rid)
-	if err := h.svc.ChangePassword(ctx, uid, req.CurrentPassword, req.NewPassword); err != nil {
-		return response.Error(c, log, err, "change-password")
+	if err := h.svc.ChangePassword(c.Request().Context(), uid, req.CurrentPassword, req.NewPassword); err != nil {
+		return response.Error(c, err)
 	}
-
 	return c.JSON(http.StatusOK, response.Map{"status": "ok"})
 }
 
 // errRateLimited marks a request already rejected with 429.
-// The response is already committed when this is returned, so Echo's error
-// handler must (and does, via its Response().Committed check) not write again;
-// never return nil on the 429 path (that reintroduces the fall-through bug).
+// The response is already committed, so Echo must not write again;
+// never return nil on the 429 path.
 var errRateLimited = errors.New("rate limit exceeded")
 
-// checkRateLimit enforces email+IP quotas; on excess it writes the 429 itself.
 func (h *Handler) checkRateLimit(c *echo.Context, email string) error {
 	allowed, retry := h.svc.AllowAttempt(email, c.RealIP())
 	if allowed {
@@ -314,31 +201,4 @@ func (h *Handler) checkRateLimit(c *echo.Context, email string) error {
 		return err
 	}
 	return errRateLimited
-}
-
-// setRefreshCookie writes the refresh-token cookie scoped to auth endpoints.
-func setRefreshCookie(c *echo.Context, prod bool, raw string, exp time.Time) {
-	c.SetCookie(&http.Cookie{
-		Name:     RefreshCookieName,
-		Value:    raw,
-		Path:     RefreshCookiePath,
-		Expires:  exp,
-		HttpOnly: true,
-		Secure:   prod,
-		SameSite: http.SameSiteStrictMode,
-	})
-}
-
-// clearRefreshCookie expires the refresh-token cookie.
-func clearRefreshCookie(c *echo.Context, prod bool) {
-	c.SetCookie(&http.Cookie{
-		Name:     RefreshCookieName,
-		Value:    "",
-		Path:     RefreshCookiePath,
-		MaxAge:   -1,
-		Expires:  time.Unix(0, 0).UTC(),
-		HttpOnly: true,
-		Secure:   prod,
-		SameSite: http.SameSiteStrictMode,
-	})
 }
