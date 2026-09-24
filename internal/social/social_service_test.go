@@ -20,7 +20,7 @@ func newTestService(t *testing.T) *Service {
 	t.Helper()
 	client := enttest.Open(t, "sqlite3", "file:socialservice?mode=memory&cache=shared&_fk=1")
 	t.Cleanup(func() { _ = client.Close() })
-	return NewService(client)
+	return NewService(client, nil)
 }
 
 func createSocialUser(t *testing.T, client *ent.Client, username, email string) *ent.User {
@@ -245,4 +245,40 @@ func TestFollow_ListFriendsLosesNothingAfterOneSided(t *testing.T) {
 	require.Len(t, p2.Users, 1)
 	assert.Equal(t, m3.ID, p2.Users[0].ID)
 	assert.False(t, p2.HasMore)
+}
+
+type recordingNotifier struct {
+	follows []string
+	friends []string
+}
+
+func (f *recordingNotifier) NotifyFollow(_ context.Context, recipientID, _, _, _, _, _ string) error {
+	f.follows = append(f.follows, recipientID)
+	return nil
+}
+
+func (f *recordingNotifier) NotifyFriend(_ context.Context, recipientID, _, _, _, _, _ string) error {
+	f.friends = append(f.friends, recipientID)
+	return nil
+}
+
+func TestFollow_FollowBackNotifiesFriend(t *testing.T) {
+	client := enttest.Open(t, "sqlite3", "file:socialfriend?mode=memory&cache=shared&_fk=1")
+	t.Cleanup(func() { _ = client.Close() })
+	notifier := &recordingNotifier{}
+	svc := NewService(client, notifier)
+	ctx := context.Background()
+
+	alice := createSocialUser(t, client, "alice", "alice@example.com")
+	bob := createSocialUser(t, client, "bob", "bob@example.com")
+
+	_, err := svc.Follow(ctx, alice.ID, bob.Username)
+	require.NoError(t, err)
+	assert.Equal(t, []string{bob.ID}, notifier.follows)
+	assert.Empty(t, notifier.friends)
+
+	_, err = svc.Follow(ctx, bob.ID, alice.Username)
+	require.NoError(t, err)
+	assert.Equal(t, []string{alice.ID}, notifier.friends)
+	assert.Len(t, notifier.follows, 1)
 }

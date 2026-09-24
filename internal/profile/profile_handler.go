@@ -1,10 +1,12 @@
 package profile
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"strings"
 
+	"ArifulProtik/TownHall/ent"
 	"ArifulProtik/TownHall/internal/auth"
 	"ArifulProtik/TownHall/internal/filestore"
 	"ArifulProtik/TownHall/pkg/response"
@@ -12,12 +14,20 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
+// ServiceAPI is what the handler needs. *Service satisfies it, tests mock it.
+type ServiceAPI interface {
+	GetProfile(ctx context.Context, viewerID, handle string) (*Response, error)
+	UpdateProfile(ctx context.Context, userID string, req UpdateRequest) (*ent.User, error)
+	UploadFile(ctx context.Context, filename string, data []byte) (*filestore.Result, error)
+	FollowCounts(ctx context.Context, userID string) (int, int)
+}
+
 type Handler struct {
-	svc    *Service
+	svc    ServiceAPI
 	secret string
 }
 
-func NewHandler(svc *Service, secret string) *Handler {
+func NewHandler(svc ServiceAPI, secret string) *Handler {
 	return &Handler{svc: svc, secret: secret}
 }
 

@@ -27,7 +27,7 @@ func newTestHandler(t *testing.T) (*echo.Echo, *Handler) {
 	e := echo.New()
 	e.Validator = validation.New()
 
-	svc := NewService(client, "test-secret-1234567890", 15*time.Minute, 720*time.Hour)
+	svc := NewService(client, "test-secret-1234567890", 15*time.Minute, 720*time.Hour, NewMemoryLimiter())
 	return e, NewHandler(svc, false, "test")
 }
 

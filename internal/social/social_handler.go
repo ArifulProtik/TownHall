@@ -1,6 +1,7 @@
 package social
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"strings"
@@ -11,12 +12,22 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
+// ServiceAPI is what the handler needs. *Service satisfies it, tests mock it.
+type ServiceAPI interface {
+	Follow(ctx context.Context, actorID, target string) (*StatusResponse, error)
+	Unfollow(ctx context.Context, actorID, target string) (*StatusResponse, error)
+	GetStatus(ctx context.Context, viewerID, target string) (*StatusResponse, error)
+	ListFollowers(ctx context.Context, target string, limit int, cursor string) (*ListResponse, error)
+	ListFollowing(ctx context.Context, target string, limit int, cursor string) (*ListResponse, error)
+	ListFriends(ctx context.Context, target string, limit int, cursor string) (*ListResponse, error)
+}
+
 type Handler struct {
-	svc    *Service
+	svc    ServiceAPI
 	secret string
 }
 
-func NewHandler(svc *Service, secret string) *Handler {
+func NewHandler(svc ServiceAPI, secret string) *Handler {
 	return &Handler{svc: svc, secret: secret}
 }
 

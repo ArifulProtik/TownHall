@@ -93,8 +93,26 @@ setup: ## Copy .env.example to .env (if missing) + tidy
 	@if [ ! -f .env ]; then cp .env.example .env && echo "$(GREEN)created .env$(RESET)"; else echo "$(YELLOW).env already exists$(RESET)"; fi
 	@go mod tidy
 
+.PHONY: dev-docker
+dev-docker: ## Start dev backend stack (hot-reload api :8080, pg, redis). Pair with `bun --cwd=ui run dev` for the frontend
+	@docker compose -f docker-compose.dev.yml up -d --build
+	@echo "$(GREEN)api: http://localhost:8080 | run frontend natively: bun --cwd=ui run dev$(RESET)"
+
+.PHONY: dev-docker-full
+dev-docker-full: ## Start dev stack WITH dockerized web (:5173). Heavier; native bun is the default
+	@docker compose -f docker-compose.dev.yml --profile web up -d --build
+	@echo "$(GREEN)api: http://localhost:8080 | web: http://localhost:5173$(RESET)"
+
+.PHONY: dev-docker-down
+dev-docker-down: ## Stop the dev stack (keeps volumes)
+	@docker compose -f docker-compose.dev.yml down
+
+.PHONY: dev-docker-logs
+dev-docker-logs: ## Follow dev api logs
+	@docker compose -f docker-compose.dev.yml logs -f api
+
 .PHONY: up
-up: ## Start app + observability stack (Grafana :3000). Stop `make dev` first (:8080 clash)
+up: ## Start prod app + observability stack (Grafana :3000). Stop `make dev` first (:8080 clash)
 	@docker compose up -d --build
 	@echo "$(GREEN)Grafana: http://localhost:3000 (admin/admin)$(RESET)"
 

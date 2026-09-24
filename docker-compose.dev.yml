@@ -1,0 +1,81 @@
+# Local dev stack: hot-reload app (api + web) plus throwaway pg + redis.
+# Usage: make dev-docker   (stop native `make dev-all` first: both want :8080/:5173)
+# Data lives in dev-named volumes, separate from the prod compose stack.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: chat_platform
+    volumes:
+      - pgdata-dev:/var/lib/postgresql/data
+    # NOTE: port 5432 is NOT published — native Postgres.app already owns
+    # localhost:5432. Compose services reach this DB as db:5432.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redisdata-dev:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      PORT: "8080"
+      APP_ENV: development # pretty logs + dev AutoMigrate on boot
+      LOG_LEVEL: debug
+      DATABASE_URL: postgres://postgres:postgres@db:5432/chat_platform?sslmode=disable
+      JWT_SECRET: dev-secret-change-me # local only — never reuse in shared envs
+      JWT_ACCESS_TTL: 15m
+      JWT_REFRESH_TTL: 720h
+      REDIS_URL: redis://redis:6379
+    volumes:
+      - .:/src
+      - /src/tmp
+    ports:
+      - "8080:8080"
+    stdin_open: true
+    tty: true
+
+  # Opt-in only (needs --profile web): native `bun run dev` in ui/ is lighter
+  # and is the default. Enable only if you want everything in containers.
+  web:
+    profiles: ["web"]
+    image: oven/bun:1
+    working_dir: /src/ui
+    depends_on:
+      - api
+    environment:
+      VITE_PROXY_TARGET: http://api:8080
+    volumes:
+      - ./ui:/src/ui
+      - bun-modules:/src/ui/node_modules
+    # Named volume starts empty and shadows the bind mount: install first.
+    command: ["sh", "-c", "bun install && bun run dev --host 0.0.0.0 --port 5173"]
+    ports:
+      - "5173:5173"
+    stdin_open: true
+    tty: true
+
+volumes:
+  pgdata-dev:
+  redisdata-dev:
+  bun-modules:

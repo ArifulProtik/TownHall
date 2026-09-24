@@ -1,24 +1,40 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
+	"ArifulProtik/TownHall/ent"
 	"ArifulProtik/TownHall/pkg/response"
 
 	"github.com/labstack/echo/v5"
 )
 
+// ServiceAPI is what the handler needs. *Service satisfies it, tests mock it.
+type ServiceAPI interface {
+	SignupEmail(ctx context.Context, in SignupEmail) (*ent.User, error)
+	Login(ctx context.Context, in LoginRequest) (*TokenPair, error)
+	Refresh(ctx context.Context, raw string) (*TokenPair, error)
+	Logout(ctx context.Context, raw string) error
+	LogoutAll(ctx context.Context, userID string) error
+	GetUser(ctx context.Context, id string) (*ent.User, error)
+	CheckUsername(ctx context.Context, currentUserID, rawUsername string) (bool, string, error)
+	SetupUsername(ctx context.Context, userID, rawUsername string) (*ent.User, error)
+	ChangePassword(ctx context.Context, userID, currentPassword, newPassword string) error
+	AllowAttempt(email, ip string) (bool, time.Duration)
+}
+
 type Handler struct {
-	svc    *Service
+	svc    ServiceAPI
 	secure bool
 	env    string
 }
 
-func NewHandler(svc *Service, secure bool, env string) *Handler {
+func NewHandler(svc ServiceAPI, secure bool, env string) *Handler {
 	return &Handler{svc: svc, secure: secure, env: env}
 }
 

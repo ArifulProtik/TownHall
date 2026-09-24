@@ -53,6 +53,42 @@ var (
 			},
 		},
 	}
+	// NotificationsColumns holds the columns for the "notifications" table.
+	NotificationsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "recipient_id", Type: field.TypeString},
+		{Name: "actor_id", Type: field.TypeString},
+		{Name: "type", Type: field.TypeEnum, Enums: []string{"follow", "like", "comment", "mention", "friend"}, Default: "follow"},
+		{Name: "entity_type", Type: field.TypeString},
+		{Name: "entity_id", Type: field.TypeString},
+		{Name: "data", Type: field.TypeString, Nullable: true, Size: 2147483647, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "read_at", Type: field.TypeTime, Nullable: true},
+	}
+	// NotificationsTable holds the schema information for the "notifications" table.
+	NotificationsTable = &schema.Table{
+		Name:       "notifications",
+		Columns:    NotificationsColumns,
+		PrimaryKey: []*schema.Column{NotificationsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "notification_recipient_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{NotificationsColumns[3], NotificationsColumns[1]},
+			},
+			{
+				Name:    "notification_recipient_id_read_at",
+				Unique:  false,
+				Columns: []*schema.Column{NotificationsColumns[3], NotificationsColumns[9]},
+			},
+			{
+				Name:    "notification_recipient_id_type_entity_id",
+				Unique:  true,
+				Columns: []*schema.Column{NotificationsColumns[3], NotificationsColumns[5], NotificationsColumns[7]},
+			},
+		},
+	}
 	// RefreshTokensColumns holds the columns for the "refresh_tokens" table.
 	RefreshTokensColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeString},
@@ -111,6 +147,7 @@ var (
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		FollowsTable,
+		NotificationsTable,
 		RefreshTokensTable,
 		UsersTable,
 	}

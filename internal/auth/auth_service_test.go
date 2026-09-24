@@ -22,7 +22,7 @@ func newTestService(t *testing.T) *Service {
 	t.Helper()
 	client := enttest.Open(t, "sqlite3", "file:authservice?mode=memory&cache=shared&_fk=1")
 	t.Cleanup(func() { client.Close() })
-	return NewService(client, "test-secret", 15*time.Minute, 720*time.Hour)
+	return NewService(client, "test-secret", 15*time.Minute, 720*time.Hour, NewMemoryLimiter())
 }
 
 func TestSignupEmail_HappyPath(t *testing.T) {
@@ -75,7 +75,7 @@ func newLoginService(t *testing.T) (*Service, context.Context) {
 	t.Helper()
 	client := enttest.Open(t, "sqlite3", "file:authlogin?mode=memory&cache=shared&_fk=1")
 	t.Cleanup(func() { client.Close() })
-	svc := NewService(client, "test-secret-1234567890", 15*time.Minute, 720*time.Hour)
+	svc := NewService(client, "test-secret-1234567890", 15*time.Minute, 720*time.Hour, NewMemoryLimiter())
 	return svc, context.Background()
 }
 

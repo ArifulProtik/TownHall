@@ -15,10 +15,23 @@ services:
       timeout: 3s
       retries: 10
 
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   app:
     build: .
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     environment:
       PORT: "8080"
@@ -29,7 +42,7 @@ services:
       JWT_SECRET: dev-secret-change-me # local only — never reuse in shared envs
       JWT_ACCESS_TTL: 15m
       JWT_REFRESH_TTL: 720h
-      REDIS_URL: redis://localhost:6379 # reserved, unused by the app today
+      REDIS_URL: redis://redis:6379
     ports:
       - "8080:8080" # stop `make dev` first — it owns :8080 too
 
@@ -78,6 +91,7 @@ services:
 
 volumes:
   pgdata:
+  redisdata:
   promdata:
   lokidata:
   grafanadata:

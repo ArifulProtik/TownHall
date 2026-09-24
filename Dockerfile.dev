@@ -1,0 +1,7 @@
+# Dev image: Go toolchain + air for backend hot reload.
+# No compiled artifact: source is bind-mounted and air rebuilds on change.
+FROM golang:1.26-alpine
+WORKDIR /src
+RUN go install github.com/air-verse/air@latest
+EXPOSE 8080
+CMD ["air", "-c", ".air.docker.toml"]

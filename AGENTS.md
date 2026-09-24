@@ -10,7 +10,8 @@
 - `make lint` / `make lint-fix` — lint / lint with auto-fix
 - `make ent-new NAME=Group` — new schema in `ent/schema/`; then `make ent-generate`
 - `make setup` — copies `.env.example` → `.env` if missing
-- `make up` / `make down` / `make logs` — observability stack (stop `make dev` first, both want `:8080`)
+- `make up` / `make down` / `make logs` — prod stack (`docker-compose.yml`: app + pg + redis + observability; stop `make dev` first, both want `:8080`)
+- `make dev-docker` / `make dev-docker-down` / `make dev-docker-logs` — dev stack (`docker-compose.dev.yml`: hot-reload `api` via air + throwaway pg + redis; pair with native `bun --cwd=ui run dev` for the frontend; stop native `make dev-all` first). `make dev-docker-full` adds dockerized `web` (`--profile web`, heavier).
 
 ## Finish gate (required)
 
@@ -58,7 +59,16 @@
 - `internal/platform/` — DB open/pooling/transactions; `internal/config/` — env only, returns `(*Config, error)`, `IsProd()` for prod checks.
 - `pkg/response` — HTTP helpers (`Map`, `Bind`, `Error`, `Unauthorized`, `BadRequest`, `CurrentUserID`, `UserIDKey`); `pkg/{apperror,validation,logger}` stay framework-free shared libs.
 - `ent/schema/` is the source of truth; everything else under `ent/` is generated.
-- Rules: no domain→domain imports for helpers (use `pkg/response`); one-way model reuse (`profile` builds on `auth.ToUserResponse`) is allowed, revisit at 3 domains. No empty placeholder dirs — `social/`, `ws/`, `test/integration/` were deleted for exactly this reason.
+- Rules: no domain→domain imports for helpers (use `pkg/response`); one-way model reuse (`profile` builds on `auth.ToUserResponse`) is allowed, revisit at 3 domains. Cross-domain events use narrow interfaces defined in the publisher (`social.FollowNotifier`), adapted in `main.go` — never import another domain. No empty placeholder dirs — `social/`, `ws/`, `test/integration/` were deleted for exactly this reason.
+- `internal/userlookup/` — shared handle→user resolver (`Resolve(ctx, db, viewerID, target)`); `social`/`profile`/`notification` use it, never duplicate `resolveTarget`.
+- `internal/notification/` — persistence + fan-out + SSE (`notification_model.go` types, `notification_broker.go` `Broker` memory/Redis via `NewBroker(redisURL)`, `notification_service.go`, `notification_handler.go` with `GET /stream`). Types live: `follow`, `friend` (follow-back, detected via reverse edge in `social.Follow`); new types (`like`, `comment`, …) only add enum value + publisher call, never broker changes.
+
+## Dependency injection (clean architecture)
+
+- Constructors take interfaces, never build impls inside: `auth.NewService(..., limiter Limiter)` (nil → memory), `profile.NewService(db, Uploader)`, `social.NewService(db, FollowNotifier)` (nil = no fan-out), `notification.NewService(db, Broker)` (nil → memory).
+- Handlers depend on narrow `ServiceAPI` interfaces, never `*Service` concrete — tests mock the interface.
+- `main.go` is the only place that knows multiple domains (adapter `followNotifier`, `NewBroker(cfg.RedisURL)`); `internal/config` stays stdlib-only, Redis client lives in `notification`.
+- SSE rule: header-auth fetch-stream only (`Authorization: Bearer`, never `?token=`); `GET /api/v1/stream` in protected group; `Last-Event-ID` replay from DB, `: ping` heartbeat ~25s, exit on request-context cancel.
 
 ## File naming
 

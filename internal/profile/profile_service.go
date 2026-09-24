@@ -8,17 +8,22 @@ import (
 
 	"ArifulProtik/TownHall/ent"
 	"ArifulProtik/TownHall/ent/follow"
-	"ArifulProtik/TownHall/ent/user"
 	"ArifulProtik/TownHall/internal/filestore"
+	"ArifulProtik/TownHall/internal/userlookup"
 	"ArifulProtik/TownHall/pkg/apperror"
 )
 
-type Service struct {
-	db    *ent.Client
-	store *filestore.Storage
+// Uploader is what profiles need. *filestore.Storage satisfies it.
+type Uploader interface {
+	Upload(ctx context.Context, filename string, data []byte) (*filestore.Result, error)
 }
 
-func NewService(db *ent.Client, store *filestore.Storage) *Service {
+type Service struct {
+	db    *ent.Client
+	store Uploader
+}
+
+func NewService(db *ent.Client, store Uploader) *Service {
 	return &Service{db: db, store: store}
 }
 
@@ -27,31 +32,9 @@ func (s *Service) UploadFile(ctx context.Context, filename string, data []byte) 
 }
 
 func (s *Service) GetProfile(ctx context.Context, viewerID, handle string) (*Response, error) {
-	cleanHandle := strings.TrimSpace(handle)
-	if cleanHandle == "" {
-		return nil, apperror.BadRequest("handle is required")
-	}
-
-	if strings.EqualFold(cleanHandle, "me") {
-		if viewerID == "" {
-			return nil, apperror.Unauthorized("unauthorized")
-		}
-		cleanHandle = viewerID
-	}
-
-	// Usernames first, ids second.
-	u, err := s.db.User.Query().Where(user.UsernameEQ(strings.ToLower(cleanHandle))).Only(ctx)
+	u, err := userlookup.Resolve(ctx, s.db, viewerID, handle)
 	if err != nil {
-		if !ent.IsNotFound(err) {
-			return nil, apperror.Internal()
-		}
-		u, err = s.db.User.Get(ctx, cleanHandle)
-		if err != nil {
-			if ent.IsNotFound(err) {
-				return nil, apperror.NotFound("user not found")
-			}
-			return nil, apperror.Internal()
-		}
+		return nil, err
 	}
 
 	resp := ToResponse(u, viewerID)

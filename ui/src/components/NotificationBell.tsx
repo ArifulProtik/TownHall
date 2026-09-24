@@ -1,19 +1,23 @@
-import { useState } from 'react';
+import { useState, type Ref } from 'react';
 import { Bell } from '@phosphor-icons/react';
 import { cn } from 'cn';
 
 interface NotificationBellProps {
   hasUnread?: boolean;
+  unreadCount?: number;
   onClick?: () => void;
+  ref?: Ref<HTMLButtonElement>;
 }
 
 /**
  * Rail-styled notification button for the primary sidebar: same squircle
- * treatment as SidebarRailItem, with an unread indicator dot. Rendered above
+ * treatment as SidebarRailItem, with an unread count badge. Rendered above
  * the profile avatar at the pinned bottom of the rail.
+ * Forwards ref so it can serve as a Base UI Popover trigger.
  */
-export function NotificationBell({ hasUnread = true, onClick }: NotificationBellProps) {
+export function NotificationBell({ hasUnread = true, unreadCount = 0, onClick, ref }: NotificationBellProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const showCount = hasUnread && unreadCount > 0;
 
   return (
     <div
@@ -22,6 +26,7 @@ export function NotificationBell({ hasUnread = true, onClick }: NotificationBell
       onMouseLeave={() => setIsHovered(false)}
     >
       <button
+        ref={ref}
         type="button"
         aria-label="Notifications"
         onClick={onClick}
@@ -30,12 +35,21 @@ export function NotificationBell({ hasUnread = true, onClick }: NotificationBell
         <span className="flex size-6 items-center justify-center [&>svg]:size-6">
           <Bell />
         </span>
-        {hasUnread && (
+        {hasUnread && !showCount && (
           <span
             data-slot="notification-dot"
             aria-hidden="true"
             className="absolute top-1.5 right-1.5 size-2 rounded-full bg-primary ring-2 ring-sidebar group-hover:bg-primary-foreground"
           />
+        )}
+        {showCount && (
+          <span
+            data-slot="notification-count"
+            aria-hidden="true"
+            className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-bold text-primary-foreground ring-2 ring-sidebar"
+          >
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
         )}
       </button>
 

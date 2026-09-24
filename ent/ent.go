@@ -4,6 +4,7 @@ package ent
 
 import (
 	"ArifulProtik/TownHall/ent/follow"
+	"ArifulProtik/TownHall/ent/notification"
 	"ArifulProtik/TownHall/ent/refreshtoken"
 	"ArifulProtik/TownHall/ent/user"
 	"context"
@@ -76,6 +77,7 @@ func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
 			follow.Table:       follow.ValidColumn,
+			notification.Table: notification.ValidColumn,
 			refreshtoken.Table: refreshtoken.ValidColumn,
 			user.Table:         user.ValidColumn,
 		})

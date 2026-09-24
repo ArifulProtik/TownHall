@@ -14,6 +14,7 @@ import (
 	"ArifulProtik/TownHall/internal/auth"
 	"ArifulProtik/TownHall/internal/config"
 	"ArifulProtik/TownHall/internal/filestore"
+	"ArifulProtik/TownHall/internal/notification"
 	"ArifulProtik/TownHall/internal/platform"
 	"ArifulProtik/TownHall/internal/profile"
 	"ArifulProtik/TownHall/internal/social"
@@ -24,6 +25,32 @@ import (
 
 	"github.com/labstack/echo/v5"
 )
+
+// followNotifier adapts notification.Service to social.FollowNotifier
+// without a domain->domain import in social. Only main knows both.
+type followNotifier struct{ svc *notification.Service }
+
+func (n *followNotifier) NotifyFollow(ctx context.Context, recipientID, actorID, actorName, actorUsername, avatarURL, entityID string) error {
+	return n.notify(ctx, recipientID, actorID, actorName, actorUsername, avatarURL, entityID, false)
+}
+
+func (n *followNotifier) NotifyFriend(ctx context.Context, recipientID, actorID, actorName, actorUsername, avatarURL, entityID string) error {
+	return n.notify(ctx, recipientID, actorID, actorName, actorUsername, avatarURL, entityID, true)
+}
+
+func (n *followNotifier) notify(ctx context.Context, recipientID, actorID, actorName, actorUsername, avatarURL, entityID string, isFriend bool) error {
+	var username *string
+	if actorUsername != "" {
+		username = &actorUsername
+	}
+	actor := notification.Actor{ID: actorID, Name: actorName, Username: username, AvatarURL: avatarURL}
+	if isFriend {
+		_, err := n.svc.NotifyFriend(ctx, recipientID, actor, entityID)
+		return err
+	}
+	_, err := n.svc.NotifyFollow(ctx, recipientID, actor, entityID)
+	return err
+}
 
 func main() {
 	if err := run(); err != nil {
@@ -68,13 +95,17 @@ func run() error {
 	e.Logger = appLog
 	appmiddleware.Register(e, appLog)
 
-	authSvc := auth.NewService(entClient, cfg.JWTSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL)
+	authSvc := auth.NewService(entClient, cfg.JWTSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL, auth.NewMemoryLimiter())
 	authHandler := auth.NewHandler(authSvc, cfg.IsProd(), cfg.AppEnv)
 
 	profileSvc := profile.NewService(entClient, filestore.New(cfg.UploadthingToken, "./uploads"))
 	profileHandler := profile.NewHandler(profileSvc, cfg.JWTSecret)
 
-	socialSvc := social.NewService(entClient)
+	notifBroker := notification.NewBroker(cfg.RedisURL)
+	notifSvc := notification.NewService(entClient, notifBroker)
+	notifHandler := notification.NewHandler(notifSvc)
+
+	socialSvc := social.NewService(entClient, &followNotifier{svc: notifSvc})
 	socialHandler := social.NewHandler(socialSvc, cfg.JWTSecret)
 
 	e.Static("/uploads", "./uploads")
@@ -86,6 +117,7 @@ func run() error {
 	authHandler.RegisterRoutes(public, protected)
 	profileHandler.RegisterRoutes(public, protected)
 	socialHandler.RegisterRoutes(public, protected)
+	notifHandler.RegisterRoutes(public, protected)
 
 	sigCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
