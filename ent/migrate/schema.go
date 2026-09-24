@@ -21,6 +21,20 @@ var (
 		Name:       "follows",
 		Columns:    FollowsColumns,
 		PrimaryKey: []*schema.Column{FollowsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "follows_users_sent_follows",
+				Columns:    []*schema.Column{FollowsColumns[3]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "follows_users_received_follows",
+				Columns:    []*schema.Column{FollowsColumns[4]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
 		Indexes: []*schema.Index{
 			{
 				Name:    "follow_follower_id_following_id",
@@ -103,5 +117,7 @@ var (
 )
 
 func init() {
+	FollowsTable.ForeignKeys[0].RefTable = UsersTable
+	FollowsTable.ForeignKeys[1].RefTable = UsersTable
 	RefreshTokensTable.ForeignKeys[0].RefTable = UsersTable
 }

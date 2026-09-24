@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"ArifulProtik/TownHall/ent/follow"
 	"ArifulProtik/TownHall/ent/predicate"
 	"ArifulProtik/TownHall/ent/refreshtoken"
 	"ArifulProtik/TownHall/ent/user"
@@ -254,6 +255,36 @@ func (_u *UserUpdate) AddRefreshTokens(v ...*RefreshToken) *UserUpdate {
 	return _u.AddRefreshTokenIDs(ids...)
 }
 
+// AddSentFollowIDs adds the "sent_follows" edge to the Follow entity by IDs.
+func (_u *UserUpdate) AddSentFollowIDs(ids ...string) *UserUpdate {
+	_u.mutation.AddSentFollowIDs(ids...)
+	return _u
+}
+
+// AddSentFollows adds the "sent_follows" edges to the Follow entity.
+func (_u *UserUpdate) AddSentFollows(v ...*Follow) *UserUpdate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSentFollowIDs(ids...)
+}
+
+// AddReceivedFollowIDs adds the "received_follows" edge to the Follow entity by IDs.
+func (_u *UserUpdate) AddReceivedFollowIDs(ids ...string) *UserUpdate {
+	_u.mutation.AddReceivedFollowIDs(ids...)
+	return _u
+}
+
+// AddReceivedFollows adds the "received_follows" edges to the Follow entity.
+func (_u *UserUpdate) AddReceivedFollows(v ...*Follow) *UserUpdate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddReceivedFollowIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (_u *UserUpdate) Mutation() *UserMutation {
 	return _u.mutation
@@ -278,6 +309,48 @@ func (_u *UserUpdate) RemoveRefreshTokens(v ...*RefreshToken) *UserUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveRefreshTokenIDs(ids...)
+}
+
+// ClearSentFollows clears all "sent_follows" edges to the Follow entity.
+func (_u *UserUpdate) ClearSentFollows() *UserUpdate {
+	_u.mutation.ClearSentFollows()
+	return _u
+}
+
+// RemoveSentFollowIDs removes the "sent_follows" edge to Follow entities by IDs.
+func (_u *UserUpdate) RemoveSentFollowIDs(ids ...string) *UserUpdate {
+	_u.mutation.RemoveSentFollowIDs(ids...)
+	return _u
+}
+
+// RemoveSentFollows removes "sent_follows" edges to Follow entities.
+func (_u *UserUpdate) RemoveSentFollows(v ...*Follow) *UserUpdate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSentFollowIDs(ids...)
+}
+
+// ClearReceivedFollows clears all "received_follows" edges to the Follow entity.
+func (_u *UserUpdate) ClearReceivedFollows() *UserUpdate {
+	_u.mutation.ClearReceivedFollows()
+	return _u
+}
+
+// RemoveReceivedFollowIDs removes the "received_follows" edge to Follow entities by IDs.
+func (_u *UserUpdate) RemoveReceivedFollowIDs(ids ...string) *UserUpdate {
+	_u.mutation.RemoveReceivedFollowIDs(ids...)
+	return _u
+}
+
+// RemoveReceivedFollows removes "received_follows" edges to Follow entities.
+func (_u *UserUpdate) RemoveReceivedFollows(v ...*Follow) *UserUpdate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveReceivedFollowIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -473,6 +546,96 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(refreshtoken.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.SentFollowsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SentFollowsTable,
+			Columns: []string{user.SentFollowsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(follow.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSentFollowsIDs(); len(nodes) > 0 && !_u.mutation.SentFollowsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SentFollowsTable,
+			Columns: []string{user.SentFollowsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(follow.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SentFollowsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SentFollowsTable,
+			Columns: []string{user.SentFollowsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(follow.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ReceivedFollowsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ReceivedFollowsTable,
+			Columns: []string{user.ReceivedFollowsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(follow.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedReceivedFollowsIDs(); len(nodes) > 0 && !_u.mutation.ReceivedFollowsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ReceivedFollowsTable,
+			Columns: []string{user.ReceivedFollowsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(follow.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ReceivedFollowsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ReceivedFollowsTable,
+			Columns: []string{user.ReceivedFollowsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(follow.FieldID, field.TypeString),
 			},
 		}
 		for _, k := range nodes {
@@ -725,6 +888,36 @@ func (_u *UserUpdateOne) AddRefreshTokens(v ...*RefreshToken) *UserUpdateOne {
 	return _u.AddRefreshTokenIDs(ids...)
 }
 
+// AddSentFollowIDs adds the "sent_follows" edge to the Follow entity by IDs.
+func (_u *UserUpdateOne) AddSentFollowIDs(ids ...string) *UserUpdateOne {
+	_u.mutation.AddSentFollowIDs(ids...)
+	return _u
+}
+
+// AddSentFollows adds the "sent_follows" edges to the Follow entity.
+func (_u *UserUpdateOne) AddSentFollows(v ...*Follow) *UserUpdateOne {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSentFollowIDs(ids...)
+}
+
+// AddReceivedFollowIDs adds the "received_follows" edge to the Follow entity by IDs.
+func (_u *UserUpdateOne) AddReceivedFollowIDs(ids ...string) *UserUpdateOne {
+	_u.mutation.AddReceivedFollowIDs(ids...)
+	return _u
+}
+
+// AddReceivedFollows adds the "received_follows" edges to the Follow entity.
+func (_u *UserUpdateOne) AddReceivedFollows(v ...*Follow) *UserUpdateOne {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddReceivedFollowIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (_u *UserUpdateOne) Mutation() *UserMutation {
 	return _u.mutation
@@ -749,6 +942,48 @@ func (_u *UserUpdateOne) RemoveRefreshTokens(v ...*RefreshToken) *UserUpdateOne 
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveRefreshTokenIDs(ids...)
+}
+
+// ClearSentFollows clears all "sent_follows" edges to the Follow entity.
+func (_u *UserUpdateOne) ClearSentFollows() *UserUpdateOne {
+	_u.mutation.ClearSentFollows()
+	return _u
+}
+
+// RemoveSentFollowIDs removes the "sent_follows" edge to Follow entities by IDs.
+func (_u *UserUpdateOne) RemoveSentFollowIDs(ids ...string) *UserUpdateOne {
+	_u.mutation.RemoveSentFollowIDs(ids...)
+	return _u
+}
+
+// RemoveSentFollows removes "sent_follows" edges to Follow entities.
+func (_u *UserUpdateOne) RemoveSentFollows(v ...*Follow) *UserUpdateOne {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSentFollowIDs(ids...)
+}
+
+// ClearReceivedFollows clears all "received_follows" edges to the Follow entity.
+func (_u *UserUpdateOne) ClearReceivedFollows() *UserUpdateOne {
+	_u.mutation.ClearReceivedFollows()
+	return _u
+}
+
+// RemoveReceivedFollowIDs removes the "received_follows" edge to Follow entities by IDs.
+func (_u *UserUpdateOne) RemoveReceivedFollowIDs(ids ...string) *UserUpdateOne {
+	_u.mutation.RemoveReceivedFollowIDs(ids...)
+	return _u
+}
+
+// RemoveReceivedFollows removes "received_follows" edges to Follow entities.
+func (_u *UserUpdateOne) RemoveReceivedFollows(v ...*Follow) *UserUpdateOne {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveReceivedFollowIDs(ids...)
 }
 
 // Where appends a list predicates to the UserUpdate builder.
@@ -974,6 +1209,96 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(refreshtoken.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.SentFollowsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SentFollowsTable,
+			Columns: []string{user.SentFollowsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(follow.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSentFollowsIDs(); len(nodes) > 0 && !_u.mutation.SentFollowsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SentFollowsTable,
+			Columns: []string{user.SentFollowsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(follow.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SentFollowsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SentFollowsTable,
+			Columns: []string{user.SentFollowsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(follow.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ReceivedFollowsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ReceivedFollowsTable,
+			Columns: []string{user.ReceivedFollowsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(follow.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedReceivedFollowsIDs(); len(nodes) > 0 && !_u.mutation.ReceivedFollowsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ReceivedFollowsTable,
+			Columns: []string{user.ReceivedFollowsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(follow.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ReceivedFollowsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ReceivedFollowsTable,
+			Columns: []string{user.ReceivedFollowsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(follow.FieldID, field.TypeString),
 			},
 		}
 		for _, k := range nodes {

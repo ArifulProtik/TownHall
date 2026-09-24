@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 )
 
 // ID filters vertices based on their ID field.
@@ -292,6 +293,52 @@ func FollowingIDEqualFold(v string) predicate.Follow {
 // FollowingIDContainsFold applies the ContainsFold predicate on the "following_id" field.
 func FollowingIDContainsFold(v string) predicate.Follow {
 	return predicate.Follow(sql.FieldContainsFold(FieldFollowingID, v))
+}
+
+// HasFollower applies the HasEdge predicate on the "follower" edge.
+func HasFollower() predicate.Follow {
+	return predicate.Follow(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, FollowerTable, FollowerColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasFollowerWith applies the HasEdge predicate on the "follower" edge with a given conditions (other predicates).
+func HasFollowerWith(preds ...predicate.User) predicate.Follow {
+	return predicate.Follow(func(s *sql.Selector) {
+		step := newFollowerStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasFollowing applies the HasEdge predicate on the "following" edge.
+func HasFollowing() predicate.Follow {
+	return predicate.Follow(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, FollowingTable, FollowingColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasFollowingWith applies the HasEdge predicate on the "following" edge with a given conditions (other predicates).
+func HasFollowingWith(preds ...predicate.User) predicate.Follow {
+	return predicate.Follow(func(s *sql.Selector) {
+		step := newFollowingStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
 }
 
 // And groups predicates with the AND operator between them.

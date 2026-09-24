@@ -903,6 +903,52 @@ func HasRefreshTokensWith(preds ...predicate.RefreshToken) predicate.User {
 	})
 }
 
+// HasSentFollows applies the HasEdge predicate on the "sent_follows" edge.
+func HasSentFollows() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, SentFollowsTable, SentFollowsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasSentFollowsWith applies the HasEdge predicate on the "sent_follows" edge with a given conditions (other predicates).
+func HasSentFollowsWith(preds ...predicate.Follow) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newSentFollowsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasReceivedFollows applies the HasEdge predicate on the "received_follows" edge.
+func HasReceivedFollows() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ReceivedFollowsTable, ReceivedFollowsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasReceivedFollowsWith applies the HasEdge predicate on the "received_follows" edge with a given conditions (other predicates).
+func HasReceivedFollowsWith(preds ...predicate.Follow) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newReceivedFollowsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.User) predicate.User {
 	return predicate.User(sql.AndPredicates(predicates...))

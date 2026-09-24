@@ -4,6 +4,7 @@ package ent
 
 import (
 	"ArifulProtik/TownHall/ent/follow"
+	"ArifulProtik/TownHall/ent/user"
 	"fmt"
 	"strings"
 	"time"
@@ -24,8 +25,44 @@ type Follow struct {
 	// FollowerID holds the value of the "follower_id" field.
 	FollowerID string `json:"follower_id,omitempty"`
 	// FollowingID holds the value of the "following_id" field.
-	FollowingID  string `json:"following_id,omitempty"`
+	FollowingID string `json:"following_id,omitempty"`
+	// Edges holds the relations/edges for other nodes in the graph.
+	// The values are being populated by the FollowQuery when eager-loading is set.
+	Edges        FollowEdges `json:"edges"`
 	selectValues sql.SelectValues
+}
+
+// FollowEdges holds the relations/edges for other nodes in the graph.
+type FollowEdges struct {
+	// Follower holds the value of the follower edge.
+	Follower *User `json:"follower,omitempty"`
+	// Following holds the value of the following edge.
+	Following *User `json:"following,omitempty"`
+	// loadedTypes holds the information for reporting if a
+	// type was loaded (or requested) in eager-loading or not.
+	loadedTypes [2]bool
+}
+
+// FollowerOrErr returns the Follower value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e FollowEdges) FollowerOrErr() (*User, error) {
+	if e.Follower != nil {
+		return e.Follower, nil
+	} else if e.loadedTypes[0] {
+		return nil, &NotFoundError{label: user.Label}
+	}
+	return nil, &NotLoadedError{edge: "follower"}
+}
+
+// FollowingOrErr returns the Following value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e FollowEdges) FollowingOrErr() (*User, error) {
+	if e.Following != nil {
+		return e.Following, nil
+	} else if e.loadedTypes[1] {
+		return nil, &NotFoundError{label: user.Label}
+	}
+	return nil, &NotLoadedError{edge: "following"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -93,6 +130,16 @@ func (_m *Follow) assignValues(columns []string, values []any) error {
 // This includes values selected through modifiers, order, etc.
 func (_m *Follow) Value(name string) (ent.Value, error) {
 	return _m.selectValues.Get(name)
+}
+
+// QueryFollower queries the "follower" edge of the Follow entity.
+func (_m *Follow) QueryFollower() *UserQuery {
+	return NewFollowClient(_m.config).QueryFollower(_m)
+}
+
+// QueryFollowing queries the "following" edge of the Follow entity.
+func (_m *Follow) QueryFollowing() *UserQuery {
+	return NewFollowClient(_m.config).QueryFollowing(_m)
 }
 
 // Update returns a builder for updating this Follow.

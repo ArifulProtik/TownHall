@@ -5,6 +5,7 @@ package ent
 import (
 	"ArifulProtik/TownHall/ent/follow"
 	"ArifulProtik/TownHall/ent/predicate"
+	"ArifulProtik/TownHall/ent/user"
 	"context"
 	"fmt"
 	"math"
@@ -18,10 +19,12 @@ import (
 // FollowQuery is the builder for querying Follow entities.
 type FollowQuery struct {
 	config
-	ctx        *QueryContext
-	order      []follow.OrderOption
-	inters     []Interceptor
-	predicates []predicate.Follow
+	ctx           *QueryContext
+	order         []follow.OrderOption
+	inters        []Interceptor
+	predicates    []predicate.Follow
+	withFollower  *UserQuery
+	withFollowing *UserQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -56,6 +59,50 @@ func (_q *FollowQuery) Unique(unique bool) *FollowQuery {
 func (_q *FollowQuery) Order(o ...follow.OrderOption) *FollowQuery {
 	_q.order = append(_q.order, o...)
 	return _q
+}
+
+// QueryFollower chains the current query on the "follower" edge.
+func (_q *FollowQuery) QueryFollower() *UserQuery {
+	query := (&UserClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(follow.Table, follow.FieldID, selector),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, follow.FollowerTable, follow.FollowerColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryFollowing chains the current query on the "following" edge.
+func (_q *FollowQuery) QueryFollowing() *UserQuery {
+	query := (&UserClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(follow.Table, follow.FieldID, selector),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, follow.FollowingTable, follow.FollowingColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
 }
 
 // First returns the first Follow entity from the query.
@@ -245,15 +292,39 @@ func (_q *FollowQuery) Clone() *FollowQuery {
 		return nil
 	}
 	return &FollowQuery{
-		config:     _q.config,
-		ctx:        _q.ctx.Clone(),
-		order:      append([]follow.OrderOption{}, _q.order...),
-		inters:     append([]Interceptor{}, _q.inters...),
-		predicates: append([]predicate.Follow{}, _q.predicates...),
+		config:        _q.config,
+		ctx:           _q.ctx.Clone(),
+		order:         append([]follow.OrderOption{}, _q.order...),
+		inters:        append([]Interceptor{}, _q.inters...),
+		predicates:    append([]predicate.Follow{}, _q.predicates...),
+		withFollower:  _q.withFollower.Clone(),
+		withFollowing: _q.withFollowing.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
 	}
+}
+
+// WithFollower tells the query-builder to eager-load the nodes that are connected to
+// the "follower" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *FollowQuery) WithFollower(opts ...func(*UserQuery)) *FollowQuery {
+	query := (&UserClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withFollower = query
+	return _q
+}
+
+// WithFollowing tells the query-builder to eager-load the nodes that are connected to
+// the "following" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *FollowQuery) WithFollowing(opts ...func(*UserQuery)) *FollowQuery {
+	query := (&UserClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withFollowing = query
+	return _q
 }
 
 // GroupBy is used to group vertices by one or more fields/columns.
@@ -332,8 +403,12 @@ func (_q *FollowQuery) prepareQuery(ctx context.Context) error {
 
 func (_q *FollowQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Follow, error) {
 	var (
-		nodes = []*Follow{}
-		_spec = _q.querySpec()
+		nodes       = []*Follow{}
+		_spec       = _q.querySpec()
+		loadedTypes = [2]bool{
+			_q.withFollower != nil,
+			_q.withFollowing != nil,
+		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*Follow).scanValues(nil, columns)
@@ -341,6 +416,7 @@ func (_q *FollowQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Follo
 	_spec.Assign = func(columns []string, values []any) error {
 		node := &Follow{config: _q.config}
 		nodes = append(nodes, node)
+		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
 	}
 	for i := range hooks {
@@ -352,7 +428,78 @@ func (_q *FollowQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Follo
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
+	if query := _q.withFollower; query != nil {
+		if err := _q.loadFollower(ctx, query, nodes, nil,
+			func(n *Follow, e *User) { n.Edges.Follower = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withFollowing; query != nil {
+		if err := _q.loadFollowing(ctx, query, nodes, nil,
+			func(n *Follow, e *User) { n.Edges.Following = e }); err != nil {
+			return nil, err
+		}
+	}
 	return nodes, nil
+}
+
+func (_q *FollowQuery) loadFollower(ctx context.Context, query *UserQuery, nodes []*Follow, init func(*Follow), assign func(*Follow, *User)) error {
+	ids := make([]string, 0, len(nodes))
+	nodeids := make(map[string][]*Follow)
+	for i := range nodes {
+		fk := nodes[i].FollowerID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(user.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "follower_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
+func (_q *FollowQuery) loadFollowing(ctx context.Context, query *UserQuery, nodes []*Follow, init func(*Follow), assign func(*Follow, *User)) error {
+	ids := make([]string, 0, len(nodes))
+	nodeids := make(map[string][]*Follow)
+	for i := range nodes {
+		fk := nodes[i].FollowingID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(user.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "following_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
 }
 
 func (_q *FollowQuery) sqlCount(ctx context.Context) (int, error) {
@@ -379,6 +526,12 @@ func (_q *FollowQuery) querySpec() *sqlgraph.QuerySpec {
 			if fields[i] != follow.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, fields[i])
 			}
+		}
+		if _q.withFollower != nil {
+			_spec.Node.AddColumnOnce(follow.FieldFollowerID)
+		}
+		if _q.withFollowing != nil {
+			_spec.Node.AddColumnOnce(follow.FieldFollowingID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {

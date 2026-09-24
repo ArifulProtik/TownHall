@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 )
 
 const (
@@ -21,8 +22,26 @@ const (
 	FieldFollowerID = "follower_id"
 	// FieldFollowingID holds the string denoting the following_id field in the database.
 	FieldFollowingID = "following_id"
+	// EdgeFollower holds the string denoting the follower edge name in mutations.
+	EdgeFollower = "follower"
+	// EdgeFollowing holds the string denoting the following edge name in mutations.
+	EdgeFollowing = "following"
 	// Table holds the table name of the follow in the database.
 	Table = "follows"
+	// FollowerTable is the table that holds the follower relation/edge.
+	FollowerTable = "follows"
+	// FollowerInverseTable is the table name for the User entity.
+	// It exists in this package in order to avoid circular dependency with the "user" package.
+	FollowerInverseTable = "users"
+	// FollowerColumn is the table column denoting the follower relation/edge.
+	FollowerColumn = "follower_id"
+	// FollowingTable is the table that holds the following relation/edge.
+	FollowingTable = "follows"
+	// FollowingInverseTable is the table name for the User entity.
+	// It exists in this package in order to avoid circular dependency with the "user" package.
+	FollowingInverseTable = "users"
+	// FollowingColumn is the table column denoting the following relation/edge.
+	FollowingColumn = "following_id"
 )
 
 // Columns holds all SQL columns for follow fields.
@@ -87,4 +106,32 @@ func ByFollowerID(opts ...sql.OrderTermOption) OrderOption {
 // ByFollowingID orders the results by the following_id field.
 func ByFollowingID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldFollowingID, opts...).ToFunc()
+}
+
+// ByFollowerField orders the results by follower field.
+func ByFollowerField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newFollowerStep(), sql.OrderByField(field, opts...))
+	}
+}
+
+// ByFollowingField orders the results by following field.
+func ByFollowingField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newFollowingStep(), sql.OrderByField(field, opts...))
+	}
+}
+func newFollowerStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(FollowerInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, FollowerTable, FollowerColumn),
+	)
+}
+func newFollowingStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(FollowingInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, FollowingTable, FollowingColumn),
+	)
 }

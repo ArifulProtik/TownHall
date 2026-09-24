@@ -326,6 +326,38 @@ func (c *FollowClient) GetX(ctx context.Context, id string) *Follow {
 	return obj
 }
 
+// QueryFollower queries the follower edge of a Follow.
+func (c *FollowClient) QueryFollower(_m *Follow) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(follow.Table, follow.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, follow.FollowerTable, follow.FollowerColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryFollowing queries the following edge of a Follow.
+func (c *FollowClient) QueryFollowing(_m *Follow) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(follow.Table, follow.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, follow.FollowingTable, follow.FollowingColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *FollowClient) Hooks() []Hook {
 	return c.hooks.Follow
@@ -617,6 +649,38 @@ func (c *UserClient) QueryRefreshTokens(_m *User) *RefreshTokenQuery {
 			sqlgraph.From(user.Table, user.FieldID, id),
 			sqlgraph.To(refreshtoken.Table, refreshtoken.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, user.RefreshTokensTable, user.RefreshTokensColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QuerySentFollows queries the sent_follows edge of a User.
+func (c *UserClient) QuerySentFollows(_m *User) *FollowQuery {
+	query := (&FollowClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(follow.Table, follow.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.SentFollowsTable, user.SentFollowsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryReceivedFollows queries the received_follows edge of a User.
+func (c *UserClient) QueryReceivedFollows(_m *User) *FollowQuery {
+	query := (&FollowClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(follow.Table, follow.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.ReceivedFollowsTable, user.ReceivedFollowsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil

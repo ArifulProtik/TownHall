@@ -169,3 +169,19 @@ func TestFollow_ListFriendsHasMoreHonest(t *testing.T) {
 	assert.False(t, p1.HasMore)
 	assert.Empty(t, p1.NextCursor)
 }
+
+func TestFollow_CascadeOnUserDelete(t *testing.T) {
+	svc := newTestService(t)
+	ctx := context.Background()
+	a := createSocialUser(t, svc.db, "cascade-a", "cascade-a@ex.com")
+	b := createSocialUser(t, svc.db, "cascade-b", "cascade-b@ex.com")
+
+	_, err := svc.Follow(ctx, a.ID, b.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 1, svc.FollowersCount(ctx, b.ID))
+
+	// Deleting the follower removes the edge instead of orphaning it.
+	require.NoError(t, svc.db.User.DeleteOneID(a.ID).Exec(ctx))
+	assert.Equal(t, 0, svc.FollowersCount(ctx, b.ID))
+	assert.Equal(t, 0, svc.FollowingCount(ctx, a.ID))
+}

@@ -2,6 +2,7 @@ package schema
 
 import (
 	"entgo.io/ent"
+	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
 )
@@ -24,7 +25,15 @@ func (Follow) Fields() []ent.Field {
 	}
 }
 
-func (Follow) Edges() []ent.Edge { return nil }
+func (Follow) Edges() []ent.Edge {
+	return []ent.Edge{
+		// Real foreign keys into User: deleting a user cascades its edges
+		// away instead of orphaning rows. follower_id/following_id stay
+		// queryable as plain fields too.
+		edge.From("follower", User.Type).Ref("sent_follows").Field("follower_id").Unique().Required(),
+		edge.From("following", User.Type).Ref("received_follows").Field("following_id").Unique().Required(),
+	}
+}
 
 func (Follow) Indexes() []ent.Index {
 	return []ent.Index{

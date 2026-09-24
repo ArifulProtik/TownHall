@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"ArifulProtik/TownHall/ent/follow"
 	"ArifulProtik/TownHall/ent/predicate"
 	"ArifulProtik/TownHall/ent/refreshtoken"
 	"ArifulProtik/TownHall/ent/user"
@@ -20,11 +21,13 @@ import (
 // UserQuery is the builder for querying User entities.
 type UserQuery struct {
 	config
-	ctx               *QueryContext
-	order             []user.OrderOption
-	inters            []Interceptor
-	predicates        []predicate.User
-	withRefreshTokens *RefreshTokenQuery
+	ctx                 *QueryContext
+	order               []user.OrderOption
+	inters              []Interceptor
+	predicates          []predicate.User
+	withRefreshTokens   *RefreshTokenQuery
+	withSentFollows     *FollowQuery
+	withReceivedFollows *FollowQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -76,6 +79,50 @@ func (_q *UserQuery) QueryRefreshTokens() *RefreshTokenQuery {
 			sqlgraph.From(user.Table, user.FieldID, selector),
 			sqlgraph.To(refreshtoken.Table, refreshtoken.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, user.RefreshTokensTable, user.RefreshTokensColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QuerySentFollows chains the current query on the "sent_follows" edge.
+func (_q *UserQuery) QuerySentFollows() *FollowQuery {
+	query := (&FollowClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(follow.Table, follow.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.SentFollowsTable, user.SentFollowsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryReceivedFollows chains the current query on the "received_follows" edge.
+func (_q *UserQuery) QueryReceivedFollows() *FollowQuery {
+	query := (&FollowClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(follow.Table, follow.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.ReceivedFollowsTable, user.ReceivedFollowsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -270,12 +317,14 @@ func (_q *UserQuery) Clone() *UserQuery {
 		return nil
 	}
 	return &UserQuery{
-		config:            _q.config,
-		ctx:               _q.ctx.Clone(),
-		order:             append([]user.OrderOption{}, _q.order...),
-		inters:            append([]Interceptor{}, _q.inters...),
-		predicates:        append([]predicate.User{}, _q.predicates...),
-		withRefreshTokens: _q.withRefreshTokens.Clone(),
+		config:              _q.config,
+		ctx:                 _q.ctx.Clone(),
+		order:               append([]user.OrderOption{}, _q.order...),
+		inters:              append([]Interceptor{}, _q.inters...),
+		predicates:          append([]predicate.User{}, _q.predicates...),
+		withRefreshTokens:   _q.withRefreshTokens.Clone(),
+		withSentFollows:     _q.withSentFollows.Clone(),
+		withReceivedFollows: _q.withReceivedFollows.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -290,6 +339,28 @@ func (_q *UserQuery) WithRefreshTokens(opts ...func(*RefreshTokenQuery)) *UserQu
 		opt(query)
 	}
 	_q.withRefreshTokens = query
+	return _q
+}
+
+// WithSentFollows tells the query-builder to eager-load the nodes that are connected to
+// the "sent_follows" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UserQuery) WithSentFollows(opts ...func(*FollowQuery)) *UserQuery {
+	query := (&FollowClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withSentFollows = query
+	return _q
+}
+
+// WithReceivedFollows tells the query-builder to eager-load the nodes that are connected to
+// the "received_follows" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UserQuery) WithReceivedFollows(opts ...func(*FollowQuery)) *UserQuery {
+	query := (&FollowClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withReceivedFollows = query
 	return _q
 }
 
@@ -371,8 +442,10 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 	var (
 		nodes       = []*User{}
 		_spec       = _q.querySpec()
-		loadedTypes = [1]bool{
+		loadedTypes = [3]bool{
 			_q.withRefreshTokens != nil,
+			_q.withSentFollows != nil,
+			_q.withReceivedFollows != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -397,6 +470,20 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 		if err := _q.loadRefreshTokens(ctx, query, nodes,
 			func(n *User) { n.Edges.RefreshTokens = []*RefreshToken{} },
 			func(n *User, e *RefreshToken) { n.Edges.RefreshTokens = append(n.Edges.RefreshTokens, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withSentFollows; query != nil {
+		if err := _q.loadSentFollows(ctx, query, nodes,
+			func(n *User) { n.Edges.SentFollows = []*Follow{} },
+			func(n *User, e *Follow) { n.Edges.SentFollows = append(n.Edges.SentFollows, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withReceivedFollows; query != nil {
+		if err := _q.loadReceivedFollows(ctx, query, nodes,
+			func(n *User) { n.Edges.ReceivedFollows = []*Follow{} },
+			func(n *User, e *Follow) { n.Edges.ReceivedFollows = append(n.Edges.ReceivedFollows, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -429,6 +516,66 @@ func (_q *UserQuery) loadRefreshTokens(ctx context.Context, query *RefreshTokenQ
 		node, ok := nodeids[*fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "user_refresh_tokens" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *UserQuery) loadSentFollows(ctx context.Context, query *FollowQuery, nodes []*User, init func(*User), assign func(*User, *Follow)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[string]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(follow.FieldFollowerID)
+	}
+	query.Where(predicate.Follow(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.SentFollowsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.FollowerID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "follower_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *UserQuery) loadReceivedFollows(ctx context.Context, query *FollowQuery, nodes []*User, init func(*User), assign func(*User, *Follow)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[string]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(follow.FieldFollowingID)
+	}
+	query.Where(predicate.Follow(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.ReceivedFollowsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.FollowingID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "following_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
 	}

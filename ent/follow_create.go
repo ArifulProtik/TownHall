@@ -4,6 +4,7 @@ package ent
 
 import (
 	"ArifulProtik/TownHall/ent/follow"
+	"ArifulProtik/TownHall/ent/user"
 	"context"
 	"errors"
 	"fmt"
@@ -72,6 +73,16 @@ func (_c *FollowCreate) SetNillableID(v *string) *FollowCreate {
 		_c.SetID(*v)
 	}
 	return _c
+}
+
+// SetFollower sets the "follower" edge to the User entity.
+func (_c *FollowCreate) SetFollower(v *User) *FollowCreate {
+	return _c.SetFollowerID(v.ID)
+}
+
+// SetFollowing sets the "following" edge to the User entity.
+func (_c *FollowCreate) SetFollowing(v *User) *FollowCreate {
+	return _c.SetFollowingID(v.ID)
 }
 
 // Mutation returns the FollowMutation object of the builder.
@@ -152,6 +163,12 @@ func (_c *FollowCreate) check() error {
 			return &ValidationError{Name: "id", err: fmt.Errorf(`ent: validator failed for field "Follow.id": %w`, err)}
 		}
 	}
+	if len(_c.mutation.FollowerIDs()) == 0 {
+		return &ValidationError{Name: "follower", err: errors.New(`ent: missing required edge "Follow.follower"`)}
+	}
+	if len(_c.mutation.FollowingIDs()) == 0 {
+		return &ValidationError{Name: "following", err: errors.New(`ent: missing required edge "Follow.following"`)}
+	}
 	return nil
 }
 
@@ -195,13 +212,39 @@ func (_c *FollowCreate) createSpec() (*Follow, *sqlgraph.CreateSpec) {
 		_spec.SetField(follow.FieldUpdatedAt, field.TypeTime, value)
 		_node.UpdatedAt = value
 	}
-	if value, ok := _c.mutation.FollowerID(); ok {
-		_spec.SetField(follow.FieldFollowerID, field.TypeString, value)
-		_node.FollowerID = value
+	if nodes := _c.mutation.FollowerIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   follow.FollowerTable,
+			Columns: []string{follow.FollowerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.FollowerID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
 	}
-	if value, ok := _c.mutation.FollowingID(); ok {
-		_spec.SetField(follow.FieldFollowingID, field.TypeString, value)
-		_node.FollowingID = value
+	if nodes := _c.mutation.FollowingIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   follow.FollowingTable,
+			Columns: []string{follow.FollowingColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.FollowingID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
 }

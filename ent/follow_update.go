@@ -5,6 +5,7 @@ package ent
 import (
 	"ArifulProtik/TownHall/ent/follow"
 	"ArifulProtik/TownHall/ent/predicate"
+	"ArifulProtik/TownHall/ent/user"
 	"context"
 	"errors"
 	"fmt"
@@ -76,9 +77,31 @@ func (_u *FollowUpdate) SetNillableFollowingID(v *string) *FollowUpdate {
 	return _u
 }
 
+// SetFollower sets the "follower" edge to the User entity.
+func (_u *FollowUpdate) SetFollower(v *User) *FollowUpdate {
+	return _u.SetFollowerID(v.ID)
+}
+
+// SetFollowing sets the "following" edge to the User entity.
+func (_u *FollowUpdate) SetFollowing(v *User) *FollowUpdate {
+	return _u.SetFollowingID(v.ID)
+}
+
 // Mutation returns the FollowMutation object of the builder.
 func (_u *FollowUpdate) Mutation() *FollowMutation {
 	return _u.mutation
+}
+
+// ClearFollower clears the "follower" edge to the User entity.
+func (_u *FollowUpdate) ClearFollower() *FollowUpdate {
+	_u.mutation.ClearFollower()
+	return _u
+}
+
+// ClearFollowing clears the "following" edge to the User entity.
+func (_u *FollowUpdate) ClearFollowing() *FollowUpdate {
+	_u.mutation.ClearFollowing()
+	return _u
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -129,6 +152,12 @@ func (_u *FollowUpdate) check() error {
 			return &ValidationError{Name: "following_id", err: fmt.Errorf(`ent: validator failed for field "Follow.following_id": %w`, err)}
 		}
 	}
+	if _u.mutation.FollowerCleared() && len(_u.mutation.FollowerIDs()) > 0 {
+		return errors.New(`ent: clearing a required unique edge "Follow.follower"`)
+	}
+	if _u.mutation.FollowingCleared() && len(_u.mutation.FollowingIDs()) > 0 {
+		return errors.New(`ent: clearing a required unique edge "Follow.following"`)
+	}
 	return nil
 }
 
@@ -150,11 +179,63 @@ func (_u *FollowUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(follow.FieldUpdatedAt, field.TypeTime, value)
 	}
-	if value, ok := _u.mutation.FollowerID(); ok {
-		_spec.SetField(follow.FieldFollowerID, field.TypeString, value)
+	if _u.mutation.FollowerCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   follow.FollowerTable,
+			Columns: []string{follow.FollowerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if value, ok := _u.mutation.FollowingID(); ok {
-		_spec.SetField(follow.FieldFollowingID, field.TypeString, value)
+	if nodes := _u.mutation.FollowerIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   follow.FollowerTable,
+			Columns: []string{follow.FollowerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.FollowingCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   follow.FollowingTable,
+			Columns: []string{follow.FollowingColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.FollowingIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   follow.FollowingTable,
+			Columns: []string{follow.FollowingColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -224,9 +305,31 @@ func (_u *FollowUpdateOne) SetNillableFollowingID(v *string) *FollowUpdateOne {
 	return _u
 }
 
+// SetFollower sets the "follower" edge to the User entity.
+func (_u *FollowUpdateOne) SetFollower(v *User) *FollowUpdateOne {
+	return _u.SetFollowerID(v.ID)
+}
+
+// SetFollowing sets the "following" edge to the User entity.
+func (_u *FollowUpdateOne) SetFollowing(v *User) *FollowUpdateOne {
+	return _u.SetFollowingID(v.ID)
+}
+
 // Mutation returns the FollowMutation object of the builder.
 func (_u *FollowUpdateOne) Mutation() *FollowMutation {
 	return _u.mutation
+}
+
+// ClearFollower clears the "follower" edge to the User entity.
+func (_u *FollowUpdateOne) ClearFollower() *FollowUpdateOne {
+	_u.mutation.ClearFollower()
+	return _u
+}
+
+// ClearFollowing clears the "following" edge to the User entity.
+func (_u *FollowUpdateOne) ClearFollowing() *FollowUpdateOne {
+	_u.mutation.ClearFollowing()
+	return _u
 }
 
 // Where appends a list predicates to the FollowUpdate builder.
@@ -290,6 +393,12 @@ func (_u *FollowUpdateOne) check() error {
 			return &ValidationError{Name: "following_id", err: fmt.Errorf(`ent: validator failed for field "Follow.following_id": %w`, err)}
 		}
 	}
+	if _u.mutation.FollowerCleared() && len(_u.mutation.FollowerIDs()) > 0 {
+		return errors.New(`ent: clearing a required unique edge "Follow.follower"`)
+	}
+	if _u.mutation.FollowingCleared() && len(_u.mutation.FollowingIDs()) > 0 {
+		return errors.New(`ent: clearing a required unique edge "Follow.following"`)
+	}
 	return nil
 }
 
@@ -328,11 +437,63 @@ func (_u *FollowUpdateOne) sqlSave(ctx context.Context) (_node *Follow, err erro
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(follow.FieldUpdatedAt, field.TypeTime, value)
 	}
-	if value, ok := _u.mutation.FollowerID(); ok {
-		_spec.SetField(follow.FieldFollowerID, field.TypeString, value)
+	if _u.mutation.FollowerCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   follow.FollowerTable,
+			Columns: []string{follow.FollowerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if value, ok := _u.mutation.FollowingID(); ok {
-		_spec.SetField(follow.FieldFollowingID, field.TypeString, value)
+	if nodes := _u.mutation.FollowerIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   follow.FollowerTable,
+			Columns: []string{follow.FollowerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.FollowingCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   follow.FollowingTable,
+			Columns: []string{follow.FollowingColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.FollowingIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   follow.FollowingTable,
+			Columns: []string{follow.FollowingColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &Follow{config: _u.config}
 	_spec.Assign = _node.assignValues

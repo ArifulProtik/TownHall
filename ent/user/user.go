@@ -43,6 +43,10 @@ const (
 	FieldWebsite = "website"
 	// EdgeRefreshTokens holds the string denoting the refresh_tokens edge name in mutations.
 	EdgeRefreshTokens = "refresh_tokens"
+	// EdgeSentFollows holds the string denoting the sent_follows edge name in mutations.
+	EdgeSentFollows = "sent_follows"
+	// EdgeReceivedFollows holds the string denoting the received_follows edge name in mutations.
+	EdgeReceivedFollows = "received_follows"
 	// Table holds the table name of the user in the database.
 	Table = "users"
 	// RefreshTokensTable is the table that holds the refresh_tokens relation/edge.
@@ -52,6 +56,20 @@ const (
 	RefreshTokensInverseTable = "refresh_tokens"
 	// RefreshTokensColumn is the table column denoting the refresh_tokens relation/edge.
 	RefreshTokensColumn = "user_refresh_tokens"
+	// SentFollowsTable is the table that holds the sent_follows relation/edge.
+	SentFollowsTable = "follows"
+	// SentFollowsInverseTable is the table name for the Follow entity.
+	// It exists in this package in order to avoid circular dependency with the "follow" package.
+	SentFollowsInverseTable = "follows"
+	// SentFollowsColumn is the table column denoting the sent_follows relation/edge.
+	SentFollowsColumn = "follower_id"
+	// ReceivedFollowsTable is the table that holds the received_follows relation/edge.
+	ReceivedFollowsTable = "follows"
+	// ReceivedFollowsInverseTable is the table name for the Follow entity.
+	// It exists in this package in order to avoid circular dependency with the "follow" package.
+	ReceivedFollowsInverseTable = "follows"
+	// ReceivedFollowsColumn is the table column denoting the received_follows relation/edge.
+	ReceivedFollowsColumn = "following_id"
 )
 
 // Columns holds all SQL columns for user fields.
@@ -226,10 +244,52 @@ func ByRefreshTokens(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newRefreshTokensStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// BySentFollowsCount orders the results by sent_follows count.
+func BySentFollowsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newSentFollowsStep(), opts...)
+	}
+}
+
+// BySentFollows orders the results by sent_follows terms.
+func BySentFollows(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newSentFollowsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByReceivedFollowsCount orders the results by received_follows count.
+func ByReceivedFollowsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newReceivedFollowsStep(), opts...)
+	}
+}
+
+// ByReceivedFollows orders the results by received_follows terms.
+func ByReceivedFollows(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newReceivedFollowsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newRefreshTokensStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(RefreshTokensInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, RefreshTokensTable, RefreshTokensColumn),
+	)
+}
+func newSentFollowsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(SentFollowsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, SentFollowsTable, SentFollowsColumn),
+	)
+}
+func newReceivedFollowsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ReceivedFollowsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, ReceivedFollowsTable, ReceivedFollowsColumn),
 	)
 }
