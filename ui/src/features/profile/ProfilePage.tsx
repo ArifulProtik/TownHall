@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useParams, Link } from 'react-router';
 import { House, WarningCircle } from '@phosphor-icons/react';
 import { useGetProfileQuery } from '@/features/profile/profileApi';
+import { DocumentTitle } from '@/components/DocumentTitle';
 import { ProfileHeader } from '@/features/profile/components/ProfileHeader';
 import { ProfileTabs } from '@/features/profile/components/ProfileTabs';
 import { EditProfileModal } from '@/features/profile/components/EditProfileModal';
@@ -25,17 +26,19 @@ function ProfileView({ handle }: { handle: string }) {
     error,
   } = useGetProfileQuery(handle || 'me');
 
-  useEffect(() => {
-    document.title = profile ? `${profile.name} | TownHall` : 'Profile | TownHall';
-    return () => {
-      document.title = 'TownHall';
-    };
-  }, [profile]);
+  // Handle-derived title renders on first paint (no flash); upgrades to the
+  // display name once the profile loads.
+  const pageTitle = profile
+    ? `${profile.name} | TownHall`
+    : handle === 'me'
+      ? 'Profile | TownHall'
+      : `@${handle} | TownHall`;
 
   // Skeleton on first load only; background refetches keep showing content.
   if (isFetching && !currentData) {
     return (
       <div className="mx-auto w-full max-w-5xl animate-pulse">
+        <DocumentTitle title={pageTitle} />
         {/* Hero skeleton */}
         <div className="overflow-hidden rounded-2xl border border-border bg-card">
           <div className="h-40 sm:h-52 w-full bg-muted/50" />
@@ -92,6 +95,7 @@ function ProfileView({ handle }: { handle: string }) {
 
     return (
       <div className="mx-auto flex w-full max-w-md flex-col items-center justify-center py-16 text-center">
+        <DocumentTitle title={pageTitle} />
         <div className="flex size-12 items-center justify-center rounded-xl bg-destructive/10 text-destructive mb-3">
           <WarningCircle className="size-6" />
         </div>
@@ -115,6 +119,7 @@ function ProfileView({ handle }: { handle: string }) {
 
   return (
     <div className="mx-auto w-full max-w-5xl pb-8">
+      <DocumentTitle title={pageTitle} />
       <ProfileHeader
         profile={profile}
         onEditProfile={() => setIsEditOpen(true)}
