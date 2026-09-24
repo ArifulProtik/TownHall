@@ -109,6 +109,76 @@ func (_c *UserCreate) SetNillableEmailVerified(v *bool) *UserCreate {
 	return _c
 }
 
+// SetBio sets the "bio" field.
+func (_c *UserCreate) SetBio(v string) *UserCreate {
+	_c.mutation.SetBio(v)
+	return _c
+}
+
+// SetNillableBio sets the "bio" field if the given value is not nil.
+func (_c *UserCreate) SetNillableBio(v *string) *UserCreate {
+	if v != nil {
+		_c.SetBio(*v)
+	}
+	return _c
+}
+
+// SetAvatarURL sets the "avatar_url" field.
+func (_c *UserCreate) SetAvatarURL(v string) *UserCreate {
+	_c.mutation.SetAvatarURL(v)
+	return _c
+}
+
+// SetNillableAvatarURL sets the "avatar_url" field if the given value is not nil.
+func (_c *UserCreate) SetNillableAvatarURL(v *string) *UserCreate {
+	if v != nil {
+		_c.SetAvatarURL(*v)
+	}
+	return _c
+}
+
+// SetBannerURL sets the "banner_url" field.
+func (_c *UserCreate) SetBannerURL(v string) *UserCreate {
+	_c.mutation.SetBannerURL(v)
+	return _c
+}
+
+// SetNillableBannerURL sets the "banner_url" field if the given value is not nil.
+func (_c *UserCreate) SetNillableBannerURL(v *string) *UserCreate {
+	if v != nil {
+		_c.SetBannerURL(*v)
+	}
+	return _c
+}
+
+// SetLocation sets the "location" field.
+func (_c *UserCreate) SetLocation(v string) *UserCreate {
+	_c.mutation.SetLocation(v)
+	return _c
+}
+
+// SetNillableLocation sets the "location" field if the given value is not nil.
+func (_c *UserCreate) SetNillableLocation(v *string) *UserCreate {
+	if v != nil {
+		_c.SetLocation(*v)
+	}
+	return _c
+}
+
+// SetWebsite sets the "website" field.
+func (_c *UserCreate) SetWebsite(v string) *UserCreate {
+	_c.mutation.SetWebsite(v)
+	return _c
+}
+
+// SetNillableWebsite sets the "website" field if the given value is not nil.
+func (_c *UserCreate) SetNillableWebsite(v *string) *UserCreate {
+	if v != nil {
+		_c.SetWebsite(*v)
+	}
+	return _c
+}
+
 // SetID sets the "id" field.
 func (_c *UserCreate) SetID(v string) *UserCreate {
 	_c.mutation.SetID(v)
@@ -238,6 +308,31 @@ func (_c *UserCreate) check() error {
 	if _, ok := _c.mutation.EmailVerified(); !ok {
 		return &ValidationError{Name: "email_verified", err: errors.New(`ent: missing required field "User.email_verified"`)}
 	}
+	if v, ok := _c.mutation.Bio(); ok {
+		if err := user.BioValidator(v); err != nil {
+			return &ValidationError{Name: "bio", err: fmt.Errorf(`ent: validator failed for field "User.bio": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.AvatarURL(); ok {
+		if err := user.AvatarURLValidator(v); err != nil {
+			return &ValidationError{Name: "avatar_url", err: fmt.Errorf(`ent: validator failed for field "User.avatar_url": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.BannerURL(); ok {
+		if err := user.BannerURLValidator(v); err != nil {
+			return &ValidationError{Name: "banner_url", err: fmt.Errorf(`ent: validator failed for field "User.banner_url": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.Location(); ok {
+		if err := user.LocationValidator(v); err != nil {
+			return &ValidationError{Name: "location", err: fmt.Errorf(`ent: validator failed for field "User.location": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.Website(); ok {
+		if err := user.WebsiteValidator(v); err != nil {
+			return &ValidationError{Name: "website", err: fmt.Errorf(`ent: validator failed for field "User.website": %w`, err)}
+		}
+	}
 	if v, ok := _c.mutation.ID(); ok {
 		if err := user.IDValidator(v); err != nil {
 			return &ValidationError{Name: "id", err: fmt.Errorf(`ent: validator failed for field "User.id": %w`, err)}
@@ -309,6 +404,26 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.EmailVerified(); ok {
 		_spec.SetField(user.FieldEmailVerified, field.TypeBool, value)
 		_node.EmailVerified = value
+	}
+	if value, ok := _c.mutation.Bio(); ok {
+		_spec.SetField(user.FieldBio, field.TypeString, value)
+		_node.Bio = value
+	}
+	if value, ok := _c.mutation.AvatarURL(); ok {
+		_spec.SetField(user.FieldAvatarURL, field.TypeString, value)
+		_node.AvatarURL = value
+	}
+	if value, ok := _c.mutation.BannerURL(); ok {
+		_spec.SetField(user.FieldBannerURL, field.TypeString, value)
+		_node.BannerURL = value
+	}
+	if value, ok := _c.mutation.Location(); ok {
+		_spec.SetField(user.FieldLocation, field.TypeString, value)
+		_node.Location = value
+	}
+	if value, ok := _c.mutation.Website(); ok {
+		_spec.SetField(user.FieldWebsite, field.TypeString, value)
+		_node.Website = value
 	}
 	if nodes := _c.mutation.RefreshTokensIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

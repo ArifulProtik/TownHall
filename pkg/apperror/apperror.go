@@ -37,6 +37,11 @@ func Unauthorized(msg string) *AppError {
 	return New(http.StatusUnauthorized, "unauthorized", msg)
 }
 
+// NotFound builds a 404 AppError.
+func NotFound(msg string) *AppError {
+	return New(http.StatusNotFound, "not_found", msg)
+}
+
 // TooManyRequests builds a 429 AppError.
 func TooManyRequests(msg string) *AppError {
 	return New(http.StatusTooManyRequests, "rate_limited", msg)

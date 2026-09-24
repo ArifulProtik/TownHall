@@ -9,7 +9,7 @@ export default function MessagesPage() {
           <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
             <ChatCircleDots className="size-8" weight="duotone" />
           </div>
-          <h2 className="text-xl font-bold text-card-foreground">Direct Messages</h2>
+          <h2 className="text-xl font-extrabold text-card-foreground">Direct Messages</h2>
           <p className="text-sm text-muted-foreground">
             Start a conversation or message your friends directly in TownHall.
           </p>

@@ -11,13 +11,13 @@ export function PostCard({ post }: { post: MockPost }) {
             <AvatarFallback>{post.author.slice(0, 2)}</AvatarFallback>
           </Avatar>
           <div>
-            <p className="text-sm font-medium text-foreground">{post.author}</p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-base font-bold text-foreground">{post.author}</p>
+            <p className="text-base text-muted-foreground">
               @{post.handle} · {post.time}
             </p>
           </div>
         </div>
-        <p className="text-sm text-foreground">{post.body}</p>
+        <p className="text-base/5 text-foreground">{post.body}</p>
         <p className="text-xs text-muted-foreground">
           {post.likes} likes · {post.replies} replies
         </p>

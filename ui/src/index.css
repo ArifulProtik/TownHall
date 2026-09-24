@@ -131,3 +131,39 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 }
+
+/*
+ * Typography scale — one rule for the whole app, modeled on X's type
+ * system (research: X runs body 15 / titles 20-23 / counts-meta 13 /
+ * caption 11, one family, weight + tone doing the distinguishing).
+ * Here every step is a built-in Tailwind size — never text-[...].
+ * Same-size roles are distinguished by weight + tone, never by
+ * inventing in-between sizes.
+ *
+ * Families: Inter Variable everywhere; Roboto Slab Variable for display
+ * moments (text-xl and up) only.
+ * Weights: 400 regular reading, 500 medium UI, 700 bold names/counts,
+ * 800 extrabold display moments. No thin, no black.
+ *
+ * text-2xl  24 semibold — auth / marketing headings only
+ * text-xl   20 extrabold — profile name, screen titles, rail + pane
+ *           titles, dialog titles, empty/error states, hero lede
+ * text-lg   18 semibold — system dialog default (ui/components only)
+ * text-base 16 regular — post content, bios, comments, author names
+ *           (bold), handles, meta rows, stats, composer + search text.
+ *           Reading roles use text-base/5 (20px leading, X density).
+ * text-sm   14 medium — buttons (component default), rail links,
+ *           friend + space names, menu items, empty-state + auth subcopy.
+ *           Inputs render md:text-sm on desktop (see below).
+ *           Exception: profile tab row uses text-base semibold/bold
+ *           (X-style tab labels).
+ * text-xs   12 muted — timestamps, counts, helper/error text, form
+ *           labels (semibold), tooltips, mutual rows.
+ * Avatar-initial fallbacks and numeric badges use the smallest fitting
+ * built-in step of their container (component default or text-xs).
+ * Inputs: text-base on touch / md:text-sm on desktop — never smaller,
+ * so iOS never force-zooms on focus. Follows ui/components/ui/input.
+ * Chrome (fixed): TopAppBar title 14 semibold with optional inline
+ * 12 regular muted subtitle (via route `handle.subtitle`); bottom nav +
+ * rail tooltips 12; rail tiles 14 semibold.
+ */

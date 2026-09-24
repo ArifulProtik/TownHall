@@ -21,6 +21,11 @@ type UserResponse struct {
 	Username      *string   `json:"username,omitempty"`
 	Provider      string    `json:"provider"`
 	EmailVerified bool      `json:"email_verified"`
+	Bio           string    `json:"bio,omitempty"`
+	AvatarURL     string    `json:"avatar_url,omitempty"`
+	BannerURL     string    `json:"banner_url,omitempty"`
+	Location      string    `json:"location,omitempty"`
+	Website       string    `json:"website,omitempty"`
 	CreatedAt     time.Time `json:"created_at"`
 }
 
@@ -50,6 +55,12 @@ type TokenPair struct {
 	RefreshExp  time.Time
 }
 
+// ChangePasswordRequest holds current and new passwords for updating credentials.
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password" validate:"required,min=8,max=72"`
+	NewPassword     string `json:"new_password" validate:"required,min=8,max=72"`
+}
+
 // ToUserResponse maps an Ent user to its public response shape.
 func ToUserResponse(u *ent.User) UserResponse {
 	var username *string
@@ -63,6 +74,11 @@ func ToUserResponse(u *ent.User) UserResponse {
 		Username:      username,
 		Provider:      string(u.Provider),
 		EmailVerified: u.EmailVerified,
+		Bio:           u.Bio,
+		AvatarURL:     u.AvatarURL,
+		BannerURL:     u.BannerURL,
+		Location:      u.Location,
+		Website:       u.Website,
 		CreatedAt:     u.CreatedAt,
 	}
 }

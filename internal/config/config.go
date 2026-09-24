@@ -12,15 +12,16 @@ import (
 
 // Config holds process configuration loaded from the environment.
 type Config struct {
-	Port          string
-	AppEnv        string
-	LogLevel      string
-	AutoMigrate   bool
-	DatabaseURL   string
-	JWTSecret     string
-	JWTAccessTTL  time.Duration
-	JWTRefreshTTL time.Duration
-	RedisURL      string
+	Port             string
+	AppEnv           string
+	LogLevel         string
+	AutoMigrate      bool
+	DatabaseURL      string
+	JWTSecret        string
+	JWTAccessTTL     time.Duration
+	JWTRefreshTTL    time.Duration
+	RedisURL         string
+	UploadthingToken string
 }
 
 // New loads configuration, exiting the process on missing/invalid required values.
@@ -30,21 +31,31 @@ func New() *Config {
 	}
 
 	return &Config{
-		Port:          getEnv("PORT", "8080"),
-		AppEnv:        getEnv("APP_ENV", "development"),
-		LogLevel:      getEnv("LOG_LEVEL", "info"),
-		AutoMigrate:   getBool("AUTO_MIGRATE", false),
-		DatabaseURL:   mustGetEnv("DATABASE_URL"),
-		JWTSecret:     mustGetEnv("JWT_SECRET"),
-		JWTAccessTTL:  getDuration("JWT_ACCESS_TTL", 15*time.Minute),
-		JWTRefreshTTL: getDuration("JWT_REFRESH_TTL", 30*24*time.Hour),
-		RedisURL:      getEnv("REDIS_URL", "redis://localhost:6379"),
+		Port:             getEnv("PORT", "8080"),
+		AppEnv:           getEnv("APP_ENV", "development"),
+		LogLevel:         getEnv("LOG_LEVEL", "info"),
+		AutoMigrate:      getBool("AUTO_MIGRATE", false),
+		DatabaseURL:      mustGetEnv("DATABASE_URL"),
+		JWTSecret:        mustGetEnv("JWT_SECRET"),
+		JWTAccessTTL:     getDuration("JWT_ACCESS_TTL", 15*time.Minute),
+		JWTRefreshTTL:    getDuration("JWT_REFRESH_TTL", 30*24*time.Hour),
+		RedisURL:         getEnv("REDIS_URL", "redis://localhost:6379"),
+		UploadthingToken: getFirstEnv([]string{"UPLOADTHING_TOKEN", "UPLOADTHING_SECRET", "UPLOADTHING_API_KEY"}, ""),
 	}
 }
 
 func getEnv(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
+	}
+	return fallback
+}
+
+func getFirstEnv(keys []string, fallback string) string {
+	for _, key := range keys {
+		if v := os.Getenv(key); v != "" {
+			return v
+		}
 	}
 	return fallback
 }

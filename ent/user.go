@@ -33,6 +33,16 @@ type User struct {
 	Provider user.Provider `json:"provider,omitempty"`
 	// EmailVerified holds the value of the "email_verified" field.
 	EmailVerified bool `json:"email_verified,omitempty"`
+	// Bio holds the value of the "bio" field.
+	Bio string `json:"bio,omitempty"`
+	// AvatarURL holds the value of the "avatar_url" field.
+	AvatarURL string `json:"avatar_url,omitempty"`
+	// BannerURL holds the value of the "banner_url" field.
+	BannerURL string `json:"banner_url,omitempty"`
+	// Location holds the value of the "location" field.
+	Location string `json:"location,omitempty"`
+	// Website holds the value of the "website" field.
+	Website string `json:"website,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the UserQuery when eager-loading is set.
 	Edges        UserEdges `json:"edges"`
@@ -64,7 +74,7 @@ func (*User) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case user.FieldEmailVerified:
 			values[i] = new(sql.NullBool)
-		case user.FieldID, user.FieldName, user.FieldEmail, user.FieldPassword, user.FieldUsername, user.FieldProvider:
+		case user.FieldID, user.FieldName, user.FieldEmail, user.FieldPassword, user.FieldUsername, user.FieldProvider, user.FieldBio, user.FieldAvatarURL, user.FieldBannerURL, user.FieldLocation, user.FieldWebsite:
 			values[i] = new(sql.NullString)
 		case user.FieldCreatedAt, user.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -137,6 +147,36 @@ func (_m *User) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.EmailVerified = value.Bool
 			}
+		case user.FieldBio:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field bio", values[i])
+			} else if value.Valid {
+				_m.Bio = value.String
+			}
+		case user.FieldAvatarURL:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field avatar_url", values[i])
+			} else if value.Valid {
+				_m.AvatarURL = value.String
+			}
+		case user.FieldBannerURL:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field banner_url", values[i])
+			} else if value.Valid {
+				_m.BannerURL = value.String
+			}
+		case user.FieldLocation:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field location", values[i])
+			} else if value.Valid {
+				_m.Location = value.String
+			}
+		case user.FieldWebsite:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field website", values[i])
+			} else if value.Valid {
+				_m.Website = value.String
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -201,6 +241,21 @@ func (_m *User) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("email_verified=")
 	builder.WriteString(fmt.Sprintf("%v", _m.EmailVerified))
+	builder.WriteString(", ")
+	builder.WriteString("bio=")
+	builder.WriteString(_m.Bio)
+	builder.WriteString(", ")
+	builder.WriteString("avatar_url=")
+	builder.WriteString(_m.AvatarURL)
+	builder.WriteString(", ")
+	builder.WriteString("banner_url=")
+	builder.WriteString(_m.BannerURL)
+	builder.WriteString(", ")
+	builder.WriteString("location=")
+	builder.WriteString(_m.Location)
+	builder.WriteString(", ")
+	builder.WriteString("website=")
+	builder.WriteString(_m.Website)
 	builder.WriteByte(')')
 	return builder.String()
 }

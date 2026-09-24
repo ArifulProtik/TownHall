@@ -69,6 +69,26 @@ func init() {
 	userDescEmailVerified := userFields[5].Descriptor()
 	// user.DefaultEmailVerified holds the default value on creation for the email_verified field.
 	user.DefaultEmailVerified = userDescEmailVerified.Default.(bool)
+	// userDescBio is the schema descriptor for bio field.
+	userDescBio := userFields[6].Descriptor()
+	// user.BioValidator is a validator for the "bio" field. It is called by the builders before save.
+	user.BioValidator = userDescBio.Validators[0].(func(string) error)
+	// userDescAvatarURL is the schema descriptor for avatar_url field.
+	userDescAvatarURL := userFields[7].Descriptor()
+	// user.AvatarURLValidator is a validator for the "avatar_url" field. It is called by the builders before save.
+	user.AvatarURLValidator = userDescAvatarURL.Validators[0].(func(string) error)
+	// userDescBannerURL is the schema descriptor for banner_url field.
+	userDescBannerURL := userFields[8].Descriptor()
+	// user.BannerURLValidator is a validator for the "banner_url" field. It is called by the builders before save.
+	user.BannerURLValidator = userDescBannerURL.Validators[0].(func(string) error)
+	// userDescLocation is the schema descriptor for location field.
+	userDescLocation := userFields[9].Descriptor()
+	// user.LocationValidator is a validator for the "location" field. It is called by the builders before save.
+	user.LocationValidator = userDescLocation.Validators[0].(func(string) error)
+	// userDescWebsite is the schema descriptor for website field.
+	userDescWebsite := userFields[10].Descriptor()
+	// user.WebsiteValidator is a validator for the "website" field. It is called by the builders before save.
+	user.WebsiteValidator = userDescWebsite.Validators[0].(func(string) error)
 	// userDescID is the schema descriptor for id field.
 	userDescID := userMixinFields0[0].Descriptor()
 	// user.DefaultID holds the default value on creation for the id field.

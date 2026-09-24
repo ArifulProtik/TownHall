@@ -8,7 +8,17 @@ export interface UserResponse {
   username?: string | null;
   provider: string;
   email_verified: boolean;
+  bio?: string;
+  avatar_url?: string;
+  banner_url?: string;
+  location?: string;
+  website?: string;
   created_at: string;
+}
+
+export interface ChangePasswordRequest {
+  current_password: string;
+  new_password: string;
 }
 
 export interface TokenResponse {
@@ -89,6 +99,13 @@ export const authApi = baseApi.injectEndpoints({
         method: 'GET',
       }),
     }),
+    changePassword: build.mutation<StatusResponse, ChangePasswordRequest>({
+      query: (body) => ({ url: '/auth/password', method: 'PUT', body }),
+    }),
+    updateUsername: build.mutation<UserResponse, SetupUsernameRequest>({
+      query: (body) => ({ url: '/auth/username', method: 'PUT', body }),
+      invalidatesTags: ['User'],
+    }),
     setupUsername: build.mutation<UserResponse, SetupUsernameRequest>({
       query: (body) => ({ url: '/auth/onboarding', method: 'POST', body }),
       async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
@@ -115,5 +132,7 @@ export const {
   useGetMeQuery,
   useCheckUsernameQuery,
   useSetupUsernameMutation,
+  useUpdateUsernameMutation,
+  useChangePasswordMutation,
 } = authApi;
 

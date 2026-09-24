@@ -15,6 +15,7 @@ const SpacesPage = lazy(() => import('@/features/spaces/SpacesPage'));
 const FeedPage = lazy(() => import('@/features/feed/FeedPage'));
 const ProfilePage = lazy(() => import('@/features/profile/ProfilePage'));
 const MessagesPage = lazy(() => import('@/features/messages/MessagesPage'));
+const SettingsPage = lazy(() => import('@/features/settings/SettingsPage'));
 
 function withSuspense(Component: ComponentType) {
   return (
@@ -41,6 +42,7 @@ export const routes: RouteObject[] = [
           { path: 'spaces', element: withSuspense(SpacesPage) },
           { path: 'feed', element: withSuspense(FeedPage) },
           { path: 'u/:handle', element: withSuspense(ProfilePage) },
+          { path: 'settings', element: withSuspense(SettingsPage), handle: { subtitle: 'Manage your account preferences, profile information, and security.' } },
         ],
       },
       {

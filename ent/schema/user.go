@@ -27,6 +27,11 @@ func (User) Fields() []ent.Field {
 		field.String("username").Optional().Unique(),
 		field.Enum("provider").Values("google", "github", "email").Default("google"),
 		field.Bool("email_verified").Default(false),
+		field.String("bio").Optional().MaxLen(280),
+		field.String("avatar_url").Optional().MaxLen(1000),
+		field.String("banner_url").Optional().MaxLen(1000),
+		field.String("location").Optional().MaxLen(100),
+		field.String("website").Optional().MaxLen(200),
 	}
 }
 
