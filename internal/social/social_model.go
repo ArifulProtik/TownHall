@@ -12,9 +12,10 @@ type StatusResponse struct {
 }
 
 type ListUser struct {
-	ID       string  `json:"id"`
-	Name     string  `json:"name"`
-	Username *string `json:"username,omitempty"`
+	ID        string  `json:"id"`
+	Name      string  `json:"name"`
+	Username  *string `json:"username,omitempty"`
+	AvatarURL string  `json:"avatar_url,omitempty"`
 }
 
 type ListResponse struct {
@@ -28,5 +29,5 @@ func toListUser(u *ent.User) ListUser {
 	if u.Username != "" {
 		username = &u.Username
 	}
-	return ListUser{ID: u.ID, Name: u.Name, Username: username}
+	return ListUser{ID: u.ID, Name: u.Name, Username: username, AvatarURL: u.AvatarURL}
 }

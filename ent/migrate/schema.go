@@ -74,7 +74,7 @@ var (
 				Symbol:     "refresh_tokens_users_refresh_tokens",
 				Columns:    []*schema.Column{RefreshTokensColumns[7]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
-				OnDelete:   schema.NoAction,
+				OnDelete:   schema.Cascade,
 			},
 		},
 		Indexes: []*schema.Index{
