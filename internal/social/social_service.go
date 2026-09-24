@@ -299,6 +299,10 @@ func (s *Service) ListFollowing(ctx context.Context, target string, limit int, c
 	return resp, nil
 }
 
+// maxFriendScanPages bounds one ListFriends call: each page costs one edge
+// query plus one batched mutual-set query, never per-candidate round-trips.
+const maxFriendScanPages = 5
+
 // ListFriends pages mutual follows of target: users both following and followed by target.
 func (s *Service) ListFriends(ctx context.Context, target string, limit int, cursor string) (*ListResponse, error) {
 	t, err := s.resolveTarget(ctx, "", target)
@@ -306,44 +310,65 @@ func (s *Service) ListFriends(ctx context.Context, target string, limit int, cur
 		return nil, err
 	}
 	limit = clampLimit(limit)
-	// Page candidate followings, keep mutuals, over-fetch to fill the page.
-	// Bounded: at most a few extra edge pages for sparse mutuals.
-	var users []ListUser
+	// Scan following-edge pages (bounded), keeping mutuals in edge order.
+	// hasMore means "more edges remain unexamined", never a promise that more
+	// mutuals exist: filtered keyset pagination can legitimately end with a
+	// sparse page.
+	var mutualIDs []string
 	next := cursor
-	hasMore := false
-	for len(users) < limit {
+	moreEdges := false
+	for i := 0; i < maxFriendScanPages && len(mutualIDs) < limit; i++ {
 		edges, more, err := s.listEdges(ctx, []func(*ent.FollowQuery) *ent.FollowQuery{
 			func(q *ent.FollowQuery) *ent.FollowQuery { return q.Where(follow.FollowerID(t.ID)) },
 		}, limit, next)
 		if err != nil {
 			return nil, err
 		}
+		if len(edges) > 0 {
+			next = edgesNextCursor(edges)
+		}
+		moreEdges = more
+		candidates := make([]string, 0, len(edges))
 		for _, e := range edges {
-			if s.edgeExists(ctx, e.FollowingID, t.ID) {
-				if u, err := s.db.User.Get(ctx, e.FollowingID); err == nil {
-					users = append(users, toListUser(u))
-					if len(users) == limit {
-						break
-					}
-				}
+			candidates = append(candidates, e.FollowingID)
+		}
+		mutualSet := map[string]bool{}
+		if len(candidates) > 0 {
+			rows, err := s.db.Follow.Query().
+				Where(follow.FollowerIDIn(candidates...), follow.FollowingID(t.ID)).
+				Select(follow.FieldFollowerID).
+				Strings(ctx)
+			if err != nil {
+				return nil, apperror.Internal()
+			}
+			for _, id := range rows {
+				mutualSet[id] = true
 			}
 		}
-		if len(users) == limit {
-			hasMore = true
-			next = edgesNextCursor(edges)
-			break
+		for _, id := range candidates {
+			if mutualSet[id] {
+				mutualIDs = append(mutualIDs, id)
+				if len(mutualIDs) == limit {
+					break
+				}
+			}
 		}
 		if !more {
 			break
 		}
-		next = edgesNextCursor(edges)
-		hasMore = more
-		if next == "" {
-			break
+	}
+	byID, err := s.usersByIDs(ctx, mutualIDs)
+	if err != nil {
+		return nil, err
+	}
+	users := make([]ListUser, 0, len(mutualIDs))
+	for _, id := range mutualIDs {
+		if u, ok := byID[id]; ok {
+			users = append(users, toListUser(u))
 		}
 	}
-	resp := &ListResponse{Users: users, HasMore: hasMore}
-	if hasMore {
+	resp := &ListResponse{Users: users, HasMore: moreEdges}
+	if moreEdges {
 		resp.NextCursor = next
 	}
 	return resp, nil

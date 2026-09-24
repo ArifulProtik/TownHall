@@ -150,3 +150,22 @@ func TestFollow_ListsAndFriends(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, following.Users, 1)
 }
+
+func TestFollow_ListFriendsHasMoreHonest(t *testing.T) {
+	svc := newTestService(t)
+	ctx := context.Background()
+	target := createSocialUser(t, svc.db, "friend-target", "friend-target@ex.com")
+	mutual := createSocialUser(t, svc.db, "friend-mutual", "friend-mutual@ex.com")
+
+	_, err := svc.Follow(ctx, target.ID, mutual.ID)
+	require.NoError(t, err)
+	_, err = svc.Follow(ctx, mutual.ID, target.ID)
+	require.NoError(t, err)
+
+	// Exact fill with no more edges: must not promise another page.
+	p1, err := svc.ListFriends(ctx, target.ID, 1, "")
+	require.NoError(t, err)
+	require.Len(t, p1.Users, 1)
+	assert.False(t, p1.HasMore)
+	assert.Empty(t, p1.NextCursor)
+}

@@ -1,6 +1,8 @@
 import * as React from 'react';
 import { UserPlus, UserCheck } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
+import { useAppSelector } from '@/app/hooks';
+import { selectIsAuthenticated } from '@/features/auth/authSlice';
 import {
   useGetFollowStatusQuery,
   useFollowUserMutation,
@@ -12,12 +14,15 @@ interface FollowButtonProps {
 }
 
 export function FollowButton({ handle }: FollowButtonProps) {
-  const { data: status, isLoading } = useGetFollowStatusQuery(handle);
+  const isAuthenticated = useAppSelector(selectIsAuthenticated);
+  const { data: status, isLoading } = useGetFollowStatusQuery(handle, {
+    skip: !isAuthenticated,
+  });
   const [follow, { isLoading: isFollowing }] = useFollowUserMutation();
   const [unfollow, { isLoading: isUnfollowing }] = useUnfollowUserMutation();
   const [error, setError] = React.useState<string | null>(null);
 
-  if (isLoading || !status || status.is_self) {
+  if (!isAuthenticated || isLoading || !status || status.is_self) {
     return null;
   }
 
