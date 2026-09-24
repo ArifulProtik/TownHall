@@ -6,8 +6,6 @@ import {
   ShareNetwork,
   PaperPlaneTilt,
   Camera,
-  UserPlus,
-  UserCheck,
   MapPin,
   LinkSimple,
   CalendarBlank,
@@ -15,6 +13,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { resolveMediaUrl } from '@/lib/media';
 import type { ProfileResponse } from '@/features/profile/profileApi';
+import { FollowButton } from '@/features/social/FollowButton';
+import { FollowListModal, type FollowListTab } from '@/features/social/FollowListModal';
 
 interface ProfileHeaderProps {
   profile: ProfileResponse;
@@ -29,9 +29,11 @@ export function ProfileHeader({
   activeTab,
   onSelectTab,
 }: ProfileHeaderProps) {
-  const [following, setFollowing] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
   const [bannerError, setBannerError] = React.useState(false);
+  const [listTab, setListTab] = React.useState<FollowListTab | null>(null);
+
+  const handle = profile.username || profile.id;
 
   const initials = profile.name ? profile.name.slice(0, 2).toUpperCase() : 'TH';
 
@@ -156,18 +158,7 @@ export function ProfileHeader({
                 </>
               ) : (
                 <>
-                  <Button
-                    size="sm"
-                    variant={following ? 'outline' : 'default'}
-                    onClick={() => setFollowing(!following)}
-                    className="gap-1.5 font-medium"
-                  >
-                    {following ? (
-                      <><UserCheck className="size-3.5" /><span>Following</span></>
-                    ) : (
-                      <><UserPlus className="size-3.5" /><span>Follow</span></>
-                    )}
-                  </Button>
+                  <FollowButton handle={handle} />
                   <Link to="/dms">
                     <Button variant="outline" size="sm" className="gap-1.5 font-medium">
                       <PaperPlaneTilt className="size-3.5" />
@@ -221,14 +212,22 @@ export function ProfileHeader({
             </div>
 
             <div className="flex flex-wrap items-center gap-x-4 text-base">
-                <span>
+                <button
+                  type="button"
+                  onClick={() => setListTab('following')}
+                  className="cursor-pointer hover:underline"
+                >
                   <strong className="text-foreground font-bold">{profile.following_count ?? 0}</strong>{' '}
                   <span className="text-muted-foreground">Following</span>
-                </span>
-                <span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setListTab('followers')}
+                  className="cursor-pointer hover:underline"
+                >
                   <strong className="text-foreground font-bold">{profile.followers_count ?? 0}</strong>{' '}
                   <span className="text-muted-foreground">Followers</span>
-                </span>
+                </button>
             </div>
           </div>
         </div>
@@ -258,6 +257,18 @@ export function ProfileHeader({
           })}
         </nav>
       </div>
+
+      {listTab && (
+        <FollowListModal
+          key={listTab}
+          open={listTab !== null}
+          onOpenChange={(open) => {
+            if (!open) setListTab(null);
+          }}
+          handle={handle}
+          initialTab={listTab}
+        />
+      )}
     </div>
   );
 }

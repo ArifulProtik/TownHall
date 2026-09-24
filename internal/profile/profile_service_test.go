@@ -94,6 +94,27 @@ func TestProfileService_GetProfile(t *testing.T) {
 	assert.Equal(t, 404, appErr.Status)
 }
 
+func TestProfileService_FollowCounts(t *testing.T) {
+	svc, client := newTestProfileService(t)
+	ctx := context.Background()
+
+	a := createTestUser(t, client, "countera", "countera@example.com")
+	b := createTestUser(t, client, "counterb", "counterb@example.com")
+
+	_, err := client.Follow.Create().SetFollowerID(a.ID).SetFollowingID(b.ID).Save(ctx)
+	require.NoError(t, err)
+
+	pb, err := svc.GetProfile(ctx, "", "counterb")
+	require.NoError(t, err)
+	assert.Equal(t, 1, pb.FollowersCount)
+	assert.Equal(t, 0, pb.FollowingCount)
+
+	pa, err := svc.GetProfile(ctx, "", "countera")
+	require.NoError(t, err)
+	assert.Equal(t, 0, pa.FollowersCount)
+	assert.Equal(t, 1, pa.FollowingCount)
+}
+
 func TestProfileService_UpdateProfile(t *testing.T) {
 	svc, client := newTestProfileService(t)
 	ctx := context.Background()

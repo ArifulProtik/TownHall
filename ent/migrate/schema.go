@@ -8,6 +8,51 @@ import (
 )
 
 var (
+	// FollowsColumns holds the columns for the "follows" table.
+	FollowsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "follower_id", Type: field.TypeString},
+		{Name: "following_id", Type: field.TypeString},
+	}
+	// FollowsTable holds the schema information for the "follows" table.
+	FollowsTable = &schema.Table{
+		Name:       "follows",
+		Columns:    FollowsColumns,
+		PrimaryKey: []*schema.Column{FollowsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "follows_users_sent_follows",
+				Columns:    []*schema.Column{FollowsColumns[3]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "follows_users_received_follows",
+				Columns:    []*schema.Column{FollowsColumns[4]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "follow_follower_id_following_id",
+				Unique:  true,
+				Columns: []*schema.Column{FollowsColumns[3], FollowsColumns[4]},
+			},
+			{
+				Name:    "follow_follower_id",
+				Unique:  false,
+				Columns: []*schema.Column{FollowsColumns[3]},
+			},
+			{
+				Name:    "follow_following_id",
+				Unique:  false,
+				Columns: []*schema.Column{FollowsColumns[4]},
+			},
+		},
+	}
 	// RefreshTokensColumns holds the columns for the "refresh_tokens" table.
 	RefreshTokensColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeString},
@@ -29,7 +74,7 @@ var (
 				Symbol:     "refresh_tokens_users_refresh_tokens",
 				Columns:    []*schema.Column{RefreshTokensColumns[7]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
-				OnDelete:   schema.NoAction,
+				OnDelete:   schema.Cascade,
 			},
 		},
 		Indexes: []*schema.Index{
@@ -65,11 +110,14 @@ var (
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
+		FollowsTable,
 		RefreshTokensTable,
 		UsersTable,
 	}
 )
 
 func init() {
+	FollowsTable.ForeignKeys[0].RefTable = UsersTable
+	FollowsTable.ForeignKeys[1].RefTable = UsersTable
 	RefreshTokensTable.ForeignKeys[0].RefTable = UsersTable
 }

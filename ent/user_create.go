@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"ArifulProtik/TownHall/ent/follow"
 	"ArifulProtik/TownHall/ent/refreshtoken"
 	"ArifulProtik/TownHall/ent/user"
 	"context"
@@ -206,6 +207,36 @@ func (_c *UserCreate) AddRefreshTokens(v ...*RefreshToken) *UserCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddRefreshTokenIDs(ids...)
+}
+
+// AddSentFollowIDs adds the "sent_follows" edge to the Follow entity by IDs.
+func (_c *UserCreate) AddSentFollowIDs(ids ...string) *UserCreate {
+	_c.mutation.AddSentFollowIDs(ids...)
+	return _c
+}
+
+// AddSentFollows adds the "sent_follows" edges to the Follow entity.
+func (_c *UserCreate) AddSentFollows(v ...*Follow) *UserCreate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddSentFollowIDs(ids...)
+}
+
+// AddReceivedFollowIDs adds the "received_follows" edge to the Follow entity by IDs.
+func (_c *UserCreate) AddReceivedFollowIDs(ids ...string) *UserCreate {
+	_c.mutation.AddReceivedFollowIDs(ids...)
+	return _c
+}
+
+// AddReceivedFollows adds the "received_follows" edges to the Follow entity.
+func (_c *UserCreate) AddReceivedFollows(v ...*Follow) *UserCreate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddReceivedFollowIDs(ids...)
 }
 
 // Mutation returns the UserMutation object of the builder.
@@ -434,6 +465,38 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(refreshtoken.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.SentFollowsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SentFollowsTable,
+			Columns: []string{user.SentFollowsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(follow.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.ReceivedFollowsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ReceivedFollowsTable,
+			Columns: []string{user.ReceivedFollowsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(follow.FieldID, field.TypeString),
 			},
 		}
 		for _, k := range nodes {

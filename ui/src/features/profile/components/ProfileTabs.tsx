@@ -6,15 +6,13 @@ import {
   MapPin,
   ShieldCheck,
   Briefcase,
-  UserCheck,
-  PaperPlaneTilt,
   MagnifyingGlass,
 } from '@phosphor-icons/react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CreatePostPrompt } from '@/features/profile/components/CreatePostPrompt';
 import { ProfileIntroCard } from '@/features/profile/components/ProfileIntroCard';
+import { FollowList } from '@/features/social/FollowList';
 import {
   TimelinePostCard,
   type TimelinePost,
@@ -93,57 +91,6 @@ export function ProfileTabs({ profile, activeTab, onEditProfile, onSelectTab }: 
     },
   ]);
 
-  const communityMembers = [
-    {
-      id: 'm1',
-      name: 'Sarah Chen',
-      handle: '@sarahc',
-      mutual: 18,
-      avatar:
-        'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80',
-    },
-    {
-      id: 'm2',
-      name: 'Marcus Vance',
-      handle: '@marcusv',
-      mutual: 12,
-      avatar:
-        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
-    },
-    {
-      id: 'm3',
-      name: 'Elena Rostova',
-      handle: '@elena',
-      mutual: 34,
-      avatar:
-        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-    },
-    {
-      id: 'm4',
-      name: 'Alex Rivera',
-      handle: '@arivera',
-      mutual: 9,
-      avatar:
-        'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
-    },
-    {
-      id: 'm5',
-      name: 'Liam Davies',
-      handle: '@liamd',
-      mutual: 22,
-      avatar:
-        'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=200&q=80',
-    },
-    {
-      id: 'm6',
-      name: 'Maya Patel',
-      handle: '@mayap',
-      mutual: 15,
-      avatar:
-        'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=200&q=80',
-    },
-  ];
-
   const galleryPhotos = [
     'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80',
     'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=600&q=80',
@@ -156,8 +103,7 @@ export function ProfileTabs({ profile, activeTab, onEditProfile, onSelectTab }: 
     'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=600&q=80',
   ];
 
-  function handleCreatePost(newContent: string, newImage?: string) {
-    const newPost: TimelinePost = {
+  function handleCreatePost(newContent: string, newImage?: string) {    const newPost: TimelinePost = {
       id: `p_${Date.now()}`,
       authorName: profile.name || 'Member',
       authorHandle: profile.username ? `@${profile.username}` : '@member',
@@ -299,51 +245,7 @@ export function ProfileTabs({ profile, activeTab, onEditProfile, onSelectTab }: 
 
       {/* ────── Friends Tab ────── */}
       {activeTab === 'community' && (
-        <div className="space-y-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-baseline gap-1.5">
-              <h2 className="text-foreground text-xl font-extrabold tracking-tight">Friends</h2>
-              <p className="text-muted-foreground text-xs">
-                {profile.followers_count ?? 0} friends
-              </p>
-            </div>
-            <div className="relative w-full sm:w-48">
-              <MagnifyingGlass className="text-muted-foreground absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search..."
-                className="bg-muted text-foreground placeholder:text-muted-foreground focus:ring-ring w-full rounded-lg py-1.5 pr-3 pl-8 text-base focus:ring-1 focus:outline-hidden md:text-sm"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {communityMembers.map((m) => (
-              <div
-                key={m.id}
-                className="hover:bg-muted/40 flex items-center gap-2.5 rounded-lg p-2 transition-colors"
-              >
-                <Avatar className="size-12 shrink-0">
-                  <AvatarImage src={m.avatar} alt={m.name} className="object-cover" />
-                  <AvatarFallback className="text-xs">{m.name.slice(0, 2)}</AvatarFallback>
-                </Avatar>
-                <div className="min-w-0 flex-1">
-                  <h4 className="text-foreground truncate text-sm font-semibold">{m.name}</h4>
-                  <p className="text-muted-foreground text-xs">{m.mutual} mutual friends</p>
-                </div>
-                <div className="flex shrink-0 gap-1">
-                  <Button variant="outline" size="icon-xs" aria-label="Message">
-                    <PaperPlaneTilt className="size-3" />
-                  </Button>
-                  <Button variant="secondary" size="xs" className="gap-0.5">
-                    <UserCheck className="size-3" />
-                    Friends
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <CommunityTab handle={profile.username || profile.id} />
       )}
 
       {/* ────── Photos Tab ────── */}
@@ -370,6 +272,30 @@ export function ProfileTabs({ profile, activeTab, onEditProfile, onSelectTab }: 
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function CommunityTab({ handle }: { handle: string }) {
+  const [search, setSearch] = useState('');
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-foreground text-xl font-extrabold tracking-tight">Friends</h2>
+        <div className="relative w-full sm:w-48">
+          <MagnifyingGlass className="text-muted-foreground absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Search..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="bg-muted text-foreground placeholder:text-muted-foreground focus:ring-ring w-full rounded-lg py-1.5 pr-3 pl-8 text-base focus:ring-1 focus:outline-hidden md:text-sm"
+          />
+        </div>
+      </div>
+
+      <FollowList handle={handle} tab="friends" filter={search} variant="cards" />
     </div>
   );
 }

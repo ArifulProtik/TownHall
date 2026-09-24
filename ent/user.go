@@ -53,9 +53,13 @@ type User struct {
 type UserEdges struct {
 	// RefreshTokens holds the value of the refresh_tokens edge.
 	RefreshTokens []*RefreshToken `json:"refresh_tokens,omitempty"`
+	// SentFollows holds the value of the sent_follows edge.
+	SentFollows []*Follow `json:"sent_follows,omitempty"`
+	// ReceivedFollows holds the value of the received_follows edge.
+	ReceivedFollows []*Follow `json:"received_follows,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [3]bool
 }
 
 // RefreshTokensOrErr returns the RefreshTokens value or an error if the edge
@@ -65,6 +69,24 @@ func (e UserEdges) RefreshTokensOrErr() ([]*RefreshToken, error) {
 		return e.RefreshTokens, nil
 	}
 	return nil, &NotLoadedError{edge: "refresh_tokens"}
+}
+
+// SentFollowsOrErr returns the SentFollows value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) SentFollowsOrErr() ([]*Follow, error) {
+	if e.loadedTypes[1] {
+		return e.SentFollows, nil
+	}
+	return nil, &NotLoadedError{edge: "sent_follows"}
+}
+
+// ReceivedFollowsOrErr returns the ReceivedFollows value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) ReceivedFollowsOrErr() ([]*Follow, error) {
+	if e.loadedTypes[2] {
+		return e.ReceivedFollows, nil
+	}
+	return nil, &NotLoadedError{edge: "received_follows"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -193,6 +215,16 @@ func (_m *User) Value(name string) (ent.Value, error) {
 // QueryRefreshTokens queries the "refresh_tokens" edge of the User entity.
 func (_m *User) QueryRefreshTokens() *RefreshTokenQuery {
 	return NewUserClient(_m.config).QueryRefreshTokens(_m)
+}
+
+// QuerySentFollows queries the "sent_follows" edge of the User entity.
+func (_m *User) QuerySentFollows() *FollowQuery {
+	return NewUserClient(_m.config).QuerySentFollows(_m)
+}
+
+// QueryReceivedFollows queries the "received_follows" edge of the User entity.
+func (_m *User) QueryReceivedFollows() *FollowQuery {
+	return NewUserClient(_m.config).QueryReceivedFollows(_m)
 }
 
 // Update returns a builder for updating this User.

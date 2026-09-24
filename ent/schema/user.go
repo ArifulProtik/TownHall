@@ -7,6 +7,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
+	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 )
@@ -61,6 +62,10 @@ func (User) Fields() []ent.Field {
 // Edges of the User.
 func (User) Edges() []ent.Edge {
 	return []ent.Edge{
-		edge.To("refresh_tokens", RefreshToken.Type),
+		edge.To("refresh_tokens", RefreshToken.Type).Annotations(entsql.OnDelete(entsql.Cascade)),
+		// Deleting a user cascades its follow edges away instead of
+		// orphaning rows (or blocking the delete under NoAction).
+		edge.To("sent_follows", Follow.Type).Annotations(entsql.OnDelete(entsql.Cascade)),
+		edge.To("received_follows", Follow.Type).Annotations(entsql.OnDelete(entsql.Cascade)),
 	}
 }

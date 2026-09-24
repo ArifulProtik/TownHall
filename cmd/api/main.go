@@ -16,6 +16,7 @@ import (
 	"ArifulProtik/TownHall/internal/filestore"
 	"ArifulProtik/TownHall/internal/platform"
 	"ArifulProtik/TownHall/internal/profile"
+	"ArifulProtik/TownHall/internal/social"
 	"ArifulProtik/TownHall/pkg/logger"
 	"ArifulProtik/TownHall/pkg/validation"
 
@@ -73,6 +74,9 @@ func run() error {
 	profileSvc := profile.NewService(entClient, filestore.New(cfg.UploadthingToken, "./uploads"))
 	profileHandler := profile.NewHandler(profileSvc, cfg.JWTSecret)
 
+	socialSvc := social.NewService(entClient)
+	socialHandler := social.NewHandler(socialSvc, cfg.JWTSecret)
+
 	e.Static("/uploads", "./uploads")
 
 	api := e.Group("/api/v1")
@@ -81,6 +85,7 @@ func run() error {
 
 	authHandler.RegisterRoutes(public, protected)
 	profileHandler.RegisterRoutes(public, protected)
+	socialHandler.RegisterRoutes(public, protected)
 
 	sigCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
