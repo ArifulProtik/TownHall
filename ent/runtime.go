@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"ArifulProtik/TownHall/ent/follow"
 	"ArifulProtik/TownHall/ent/refreshtoken"
 	"ArifulProtik/TownHall/ent/schema"
 	"ArifulProtik/TownHall/ent/user"
@@ -13,6 +14,35 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	followMixin := schema.Follow{}.Mixin()
+	followMixinFields0 := followMixin[0].Fields()
+	_ = followMixinFields0
+	followFields := schema.Follow{}.Fields()
+	_ = followFields
+	// followDescCreatedAt is the schema descriptor for created_at field.
+	followDescCreatedAt := followMixinFields0[1].Descriptor()
+	// follow.DefaultCreatedAt holds the default value on creation for the created_at field.
+	follow.DefaultCreatedAt = followDescCreatedAt.Default.(func() time.Time)
+	// followDescUpdatedAt is the schema descriptor for updated_at field.
+	followDescUpdatedAt := followMixinFields0[2].Descriptor()
+	// follow.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	follow.DefaultUpdatedAt = followDescUpdatedAt.Default.(func() time.Time)
+	// follow.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	follow.UpdateDefaultUpdatedAt = followDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// followDescFollowerID is the schema descriptor for follower_id field.
+	followDescFollowerID := followFields[0].Descriptor()
+	// follow.FollowerIDValidator is a validator for the "follower_id" field. It is called by the builders before save.
+	follow.FollowerIDValidator = followDescFollowerID.Validators[0].(func(string) error)
+	// followDescFollowingID is the schema descriptor for following_id field.
+	followDescFollowingID := followFields[1].Descriptor()
+	// follow.FollowingIDValidator is a validator for the "following_id" field. It is called by the builders before save.
+	follow.FollowingIDValidator = followDescFollowingID.Validators[0].(func(string) error)
+	// followDescID is the schema descriptor for id field.
+	followDescID := followMixinFields0[0].Descriptor()
+	// follow.DefaultID holds the default value on creation for the id field.
+	follow.DefaultID = followDescID.Default.(func() string)
+	// follow.IDValidator is a validator for the "id" field. It is called by the builders before save.
+	follow.IDValidator = followDescID.Validators[0].(func(string) error)
 	refreshtokenMixin := schema.RefreshToken{}.Mixin()
 	refreshtokenMixinFields0 := refreshtokenMixin[0].Fields()
 	_ = refreshtokenMixinFields0
