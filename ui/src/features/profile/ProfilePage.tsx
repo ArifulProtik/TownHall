@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router';
 import { House, WarningCircle } from '@phosphor-icons/react';
 import { useGetProfileQuery } from '@/features/profile/profileApi';
@@ -24,6 +24,13 @@ function ProfileView({ handle }: { handle: string }) {
     isError,
     error,
   } = useGetProfileQuery(handle || 'me');
+
+  useEffect(() => {
+    document.title = profile ? `${profile.name} | TownHall` : 'Profile | TownHall';
+    return () => {
+      document.title = 'TownHall';
+    };
+  }, [profile]);
 
   // Skeleton on first load only; background refetches keep showing content.
   if (isFetching && !currentData) {
